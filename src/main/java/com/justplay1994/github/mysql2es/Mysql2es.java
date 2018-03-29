@@ -25,18 +25,23 @@ public class Mysql2es {
 //        hashMap.put("password","YTY2NWE0NTkyMDQyMmY5ZDQxN2U0ODY3ZWZkYzRmYjhhMDRhMWYzZmZmMWZhMDdlOTk4ZTg2ZjdmN2EyN2FlMw");
 //        mysql2es.es("db_unified_authentication","tb_user_info","3",hashMap);
     }
-
+    public static String ESUrl = "http://www.justplay1994.win:10000/";
     public void doPerHour(){
         String driver = "com.mysql.jdbc.Driver";
-        String URL = "jdbc:mysql://localhost:3306/";
+//        String URL = "jdbc:mysql://localhost:3306/";
+        String URL = "jdbc:mysql://10.0.12.189:3306/";
         Connection con = null;
         ResultSet rs = null;
         Statement st = null;
         String sql = "select * from ";
         String USERNAME = "root";
-        String PASSWORD = "123456";
+//        String PASSWORD = "123456";
+        String PASSWORD = "centos";
         String[] skipDB = {"information_schema","mysql","performance_schema"};
 
+        Properties properties = new Properties();
+        properties.setProperty("useSSL","false");
+        properties.setProperty("verifyServerCertificate","false");
 
         try
         {
@@ -107,6 +112,8 @@ public class Mysql2es {
                         System.out.println("【"+dbName+"】【"+tbName+"】");
                         System.out.println(row);
 
+                        if(rs.isFirst())
+                            esMapping(dbName,tbName,row);
                         es(dbName,tbName,rs.getString("id"),row);
                     }
                 }
@@ -119,7 +126,7 @@ public class Mysql2es {
         }
         catch(Exception e)
         {
-            System.out.println("Connect fail:" + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -131,12 +138,13 @@ public class Mysql2es {
      * @param row
      */
     public void es(String dbName, String tbName, String id, Map<String,String> row){
+        System.out.println("es ...");
         try {
             /*es索引要求必须是小写*/
-            dbName.toLowerCase();
-            tbName.toLowerCase();
+            dbName = dbName.toLowerCase();
+            tbName = tbName.toLowerCase();
 
-            URL url = new URL("http://www.justplay1994.win:10000/"+dbName+":"+tbName+"/_doc/"+id);
+            URL url = new URL(ESUrl+dbName+"@"+tbName+"/_doc/"+id);
             URLConnection urlConnection = url.openConnection();
             HttpURLConnection httpURLConnection = (HttpURLConnection)urlConnection;
 
@@ -153,7 +161,71 @@ public class Mysql2es {
 
             ObjectMapper objectMapper = new ObjectMapper();
             String json = objectMapper.writeValueAsString(row);
-//            System.out.println(json);
+            System.out.println(json);
+            outputStream.write(json.getBytes());
+
+            InputStream inputStream = httpURLConnection.getInputStream();
+//            System.out.println(inputStream);
+
+            httpURLConnection.disconnect();
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 新建索引和映射
+     * 每个字段增加data_detection:false； 关闭自动转化为时间格式的功能。
+     * 所有的字段映射为text，经纬度映射为geo。防止数据字段映射为date，数据不一致（脏数据）会报错。
+     * 只能采用put请求
+     * es7.0的index不支持冒号，所以使用@隔开库与表
+     * @param dbName
+     * @param tbName
+     * @param row
+     */
+    public void esMapping(String dbName, String tbName, Map<String,String> row){
+        System.out.println("esMapping ...");
+        try {
+            /*es索引要求必须是小写*/
+            dbName = dbName.toLowerCase();
+            tbName = tbName.toLowerCase();
+
+            HashMap propertiesMap = new HashMap();
+            Set<String> set = row.keySet();
+            Iterator<String> iterator = set.iterator();
+            while(iterator.hasNext()){
+                HashMap temp = new HashMap();
+                temp.put("type","text");
+                propertiesMap.put(iterator.next(),temp);
+            }
+            HashMap indexMap = new HashMap();
+            HashMap mappingsMap = new HashMap();
+            HashMap  docMap= new HashMap();
+
+            docMap.put("properties",propertiesMap);
+            mappingsMap.put("_doc",docMap);
+            indexMap.put("mappings",mappingsMap);
+
+            URL url = new URL(ESUrl+dbName+"@"+tbName);
+            URLConnection urlConnection = url.openConnection();
+            HttpURLConnection httpURLConnection = (HttpURLConnection)urlConnection;
+
+            /*输入默认为false，post需要打开*/
+            httpURLConnection.setDoInput(true);
+            httpURLConnection.setDoOutput(true);
+            httpURLConnection.setRequestProperty("Content-Type","application/json");
+            httpURLConnection.setRequestMethod("PUT");
+            httpURLConnection.setConnectTimeout(3000);
+
+            httpURLConnection.connect();
+
+            OutputStream outputStream = httpURLConnection.getOutputStream();
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            String json = objectMapper.writeValueAsString(indexMap);
+            System.out.println(json);
             outputStream.write(json.getBytes());
 
             InputStream inputStream = httpURLConnection.getInputStream();
