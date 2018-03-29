@@ -100,8 +100,9 @@ public class Mysql2es {
                             String colName = dbs.get(dbName).get(tbName).get(i);
                             String value = rs.getString(colName);
 //                            System.out.println("【"+dbName+"】【"+tbName+"】【"+colName+"】"+value);
-                            if(value!=null)value = URLEncoder.encode(value,"UTF-8");
-                            row.put(tbName+colName,value);/*es相同索引，即便不同type也不允许有同名字段，因为是扁平化存储*/
+//                            if(value!=null)value = URLEncoder.encode(value,"UTF-8");
+//                            row.put(tbName+"__"+colName,value);/*es相同索引，即便不同type也不允许有同名字段，因为是扁平化存储*/
+                            row.put(colName,value);
                         }
                         System.out.println("【"+dbName+"】【"+tbName+"】");
                         System.out.println(row);
@@ -122,13 +123,20 @@ public class Mysql2es {
         }
     }
 
+    /**
+     * es6.0已经移除了type
+     * @param dbName
+     * @param tbName
+     * @param id
+     * @param row
+     */
     public void es(String dbName, String tbName, String id, Map<String,String> row){
         try {
             /*es索引要求必须是小写*/
             dbName.toLowerCase();
             tbName.toLowerCase();
 
-            URL url = new URL("http://www.justplay1994.win:10000/"+dbName+"/"+tbName+"/"+id);
+            URL url = new URL("http://www.justplay1994.win:10000/"+dbName+":"+tbName+"/_doc/"+id);
             URLConnection urlConnection = url.openConnection();
             HttpURLConnection httpURLConnection = (HttpURLConnection)urlConnection;
 
@@ -137,17 +145,21 @@ public class Mysql2es {
             httpURLConnection.setDoOutput(true);
             httpURLConnection.setRequestProperty("Content-Type","application/json");
             httpURLConnection.setRequestMethod("POST");
+            httpURLConnection.setConnectTimeout(3000);
 
             httpURLConnection.connect();
 
             OutputStream outputStream = httpURLConnection.getOutputStream();
 
             ObjectMapper objectMapper = new ObjectMapper();
-            outputStream.write(objectMapper.writeValueAsString(row).getBytes());
+            String json = objectMapper.writeValueAsString(row);
+//            System.out.println(json);
+            outputStream.write(json.getBytes());
 
             InputStream inputStream = httpURLConnection.getInputStream();
-            System.out.println(inputStream);
+//            System.out.println(inputStream);
 
+            httpURLConnection.disconnect();
         } catch (MalformedURLException e) {
             e.printStackTrace();
         } catch (IOException e) {
