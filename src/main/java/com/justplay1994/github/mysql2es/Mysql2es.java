@@ -30,7 +30,7 @@ public class Mysql2es {
 //        hashMap.put("password","YTY2NWE0NTkyMDQyMmY5ZDQxN2U0ODY3ZWZkYzRmYjhhMDRhMWYzZmZmMWZhMDdlOTk4ZTg2ZjdmN2EyN2FlMw");
 //        mysql2es.es("db_unified_authentication","tb_user_info","3",hashMap);
     }
-    public static String ESUrl = "http://justplay1994.win:10000/";
+    public static String ESUrl = "http://www.justplay1994.win:10000/";
     public void doPerHour(){
         String driver = "com.mysql.jdbc.Driver";
 //        String URL = "jdbc:mysql://localhost:3306/";
@@ -188,9 +188,9 @@ public class Mysql2es {
 
             httpURLConnection.disconnect();
         } catch (MalformedURLException e) {
-            logger.error("error",e);
+            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【id】"+id+"【row】:"+row,e);
         } catch (IOException e) {
-            logger.error("error",e);
+            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【id】"+id+"【row】:"+row,e);
         }
     }
 
@@ -252,9 +252,9 @@ public class Mysql2es {
 
             httpURLConnection.disconnect();
         } catch (MalformedURLException e) {
-            logger.error("error",e);
+            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【row】:"+row,e);
         } catch (IOException e) {
-            logger.error("error",e);
+            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【row】:"+row,e);
         }
     }
 }
