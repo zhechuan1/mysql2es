@@ -2,6 +2,9 @@ package com.justplay1994.github.mysql2es;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectOutputStream;
@@ -16,7 +19,9 @@ import java.util.*;
  */
 public class Mysql2es {
 
+    public static final Logger logger = LoggerFactory.getLogger(Mysql2es.class);
     public static void main(String[] args){
+        logger.info("start copy data from mysql to es ...");
         Mysql2es mysql2es = new Mysql2es();
         mysql2es.doPerHour();
 //        HashMap hashMap = new HashMap();
@@ -25,7 +30,7 @@ public class Mysql2es {
 //        hashMap.put("password","YTY2NWE0NTkyMDQyMmY5ZDQxN2U0ODY3ZWZkYzRmYjhhMDRhMWYzZmZmMWZhMDdlOTk4ZTg2ZjdmN2EyN2FlMw");
 //        mysql2es.es("db_unified_authentication","tb_user_info","3",hashMap);
     }
-    public static String ESUrl = "http://www.justplay1994.win:10000/";
+    public static String ESUrl = "justplay1994.win:10000/";
     public void doPerHour(){
         String driver = "com.mysql.jdbc.Driver";
 //        String URL = "jdbc:mysql://localhost:3306/";
@@ -39,6 +44,11 @@ public class Mysql2es {
         String PASSWORD = "centos";
         String[] skipDB = {"information_schema","mysql","performance_schema"};
 
+        int dbNum = 0;
+        int tbNum = 0;
+        int colNum = 0;
+        int rowNum = 0;
+
         Properties properties = new Properties();
         properties.setProperty("useSSL","false");
         properties.setProperty("verifyServerCertificate","false");
@@ -49,13 +59,13 @@ public class Mysql2es {
         }
         catch(java.lang.ClassNotFoundException e)
         {
-            System.out.println("Cant't load Driver");
+            logger.error("Cant't load Driver");
         }
         try
         {
             /*查询所有库、表、字段*/
             con= DriverManager.getConnection(URL+"information_schema",USERNAME,PASSWORD);
-            System.out.println("Connect Successfull.");
+            logger.info("Connect mysql Successfull.");
 
             st=con.createStatement();
 
@@ -82,6 +92,7 @@ public class Mysql2es {
             Set<String> dbSet = dbs.keySet();
             Iterator<String> dbIt = dbSet.iterator();
             while(dbIt.hasNext()){
+                dbNum++;
                 String dbName = dbIt.next();
                 boolean skip = false;
                 for(int s = 0; s < skipDB.length; ++s){
@@ -96,12 +107,15 @@ public class Mysql2es {
                 Set<String> tbSet = dbs.get(dbName).keySet();
                 Iterator<String> tbIt = tbSet.iterator();
                 while(tbIt.hasNext()) {
+                    tbNum++;
                     String tbName = tbIt.next();
                     rs = st.executeQuery(sql +tbName);
                     /*将数据逐条存入es中*/
                     while(rs.next()){
+                        rowNum++;
                         HashMap<String,String> row = new HashMap<String, String>();
                         for(int i = 0; i < dbs.get(dbName).get(tbName).size();++i) {
+                            colNum++;
                             String colName = dbs.get(dbName).get(tbName).get(i);
                             String value = rs.getString(colName);
 //                            System.out.println("【"+dbName+"】【"+tbName+"】【"+colName+"】"+value);
@@ -109,8 +123,8 @@ public class Mysql2es {
 //                            row.put(tbName+"__"+colName,value);/*es相同索引，即便不同type也不允许有同名字段，因为是扁平化存储*/
                             row.put(colName,value);
                         }
-                        System.out.println("【"+dbName+"】【"+tbName+"】");
-                        System.out.println(row);
+                        logger.info("【"+dbName+"】【"+tbName+"】");
+                        logger.info(row.toString());
 
                         if(rs.isFirst())
                             esMapping(dbName,tbName,row);
@@ -119,14 +133,19 @@ public class Mysql2es {
                 }
             }
 
-            System.out.println("ok");
+            logger.info("Finished!");
+            logger.info("db number: "+dbNum);
+            logger.info("tb nubmer: "+tbNum);
+            logger.info("row number: "+rowNum);
+            logger.info("colum number: "+colNum);
+
             rs.close();
             st.close();
             con.close();
         }
         catch(Exception e)
         {
-            e.printStackTrace();
+            logger.error("error",e);
         }
     }
 
@@ -138,7 +157,7 @@ public class Mysql2es {
      * @param row
      */
     public void es(String dbName, String tbName, String id, Map<String,String> row){
-        System.out.println("es ...");
+        logger.info("es ...");
         try {
             /*es索引要求必须是小写*/
             dbName = dbName.toLowerCase();
@@ -161,7 +180,7 @@ public class Mysql2es {
 
             ObjectMapper objectMapper = new ObjectMapper();
             String json = objectMapper.writeValueAsString(row);
-            System.out.println(json);
+            logger.info(json);
             outputStream.write(json.getBytes());
 
             InputStream inputStream = httpURLConnection.getInputStream();
@@ -169,9 +188,9 @@ public class Mysql2es {
 
             httpURLConnection.disconnect();
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+            logger.error("error",e);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("error",e);
         }
     }
 
@@ -186,7 +205,7 @@ public class Mysql2es {
      * @param row
      */
     public void esMapping(String dbName, String tbName, Map<String,String> row){
-        System.out.println("esMapping ...");
+        logger.info("esMapping ...");
         try {
             /*es索引要求必须是小写*/
             dbName = dbName.toLowerCase();
@@ -225,7 +244,7 @@ public class Mysql2es {
 
             ObjectMapper objectMapper = new ObjectMapper();
             String json = objectMapper.writeValueAsString(indexMap);
-            System.out.println(json);
+            logger.info(json);
             outputStream.write(json.getBytes());
 
             InputStream inputStream = httpURLConnection.getInputStream();
@@ -233,9 +252,9 @@ public class Mysql2es {
 
             httpURLConnection.disconnect();
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+            logger.error("error",e);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("error",e);
         }
     }
 }
