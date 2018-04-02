@@ -31,13 +31,15 @@ public class Mysql2es{
     public static String lonStr = "X";
 
     public void doPerHour(){
+        esDeleteAll();
+
         String driver = "com.mysql.jdbc.Driver";
         String URL = "jdbc:mysql://localhost:3306/";
         Connection con = null;
         ResultSet rs = null;
         Statement st = null;
         String sql = "select * from ";
-        String USERNAME = "root";
+        String USER = "root";
         String PASSWORD = "123456";
 
         String[] skipDB = {"information_schema","mysql","performance_schema"};
@@ -48,8 +50,17 @@ public class Mysql2es{
         int rowNum = 0;
 
         Properties properties = new Properties();
+        properties.setProperty("user",USER);
+        properties.setProperty("password",PASSWORD);
         properties.setProperty("useSSL","false");
         properties.setProperty("verifyServerCertificate","false");
+        /*
+        SQL默认date的值为0000-00-00，
+        但 java.sql.Date 将其视为 不合法的值 格式不正确，
+        然后读取的时候会报错，需要加上该属性，将date默认值转换为null
+        参考 https://blog.csdn.net/ja_II_ck/article/details/3905120
+        */
+        properties.setProperty("zeroDateTimeBehavior","convertToNull");
 
         try
         {
@@ -62,7 +73,8 @@ public class Mysql2es{
         try
         {
             /*查询所有库、表、字段*/
-            con= DriverManager.getConnection(URL+"information_schema",USERNAME,PASSWORD);
+//            con= DriverManager.getConnection(URL+"information_schema",USER,PASSWORD);
+            con= DriverManager.getConnection(URL+"information_schema",properties);
             logger.info("Connect mysql Successfull.");
 
             st=con.createStatement();
@@ -100,7 +112,9 @@ public class Mysql2es{
                     }
                 }
                 if(skip)continue;
-                con = DriverManager.getConnection(URL+dbName,USERNAME,PASSWORD);
+//                con = DriverManager.getConnection(URL+dbName,USER,PASSWORD);
+                con = DriverManager.getConnection(URL+dbName,properties);
+
                 st = con.createStatement();
                 Set<String> tbSet = dbs.get(dbName).keySet();
                 Iterator<String> tbIt = tbSet.iterator();
@@ -124,26 +138,34 @@ public class Mysql2es{
                         logger.info("【"+dbName+"】【"+tbName+"】");
                         logger.info(row.toString());
 
-
+                        /*如果存在经纬度坐标，则进行类型转换*/
+                        if(row.get(latStr)!=null && row.get(lonStr)!=null) {
 //                        /*地理坐标点添加至location中*/
-                        HashMap location = new HashMap();
+                            HashMap location = new HashMap();
                         /*点point*/
-                        location.put("lat",row.get(latStr));
-                        location.put("lon",row.get(lonStr));
+                            location.put("lat", row.get(latStr));
+                            location.put("lon", row.get(lonStr));
                         /*面*/
 //                        location.put("type", "point");
 //                        String[] point = {(String)row.get(lonStr),(String)row.get(latStr)};
 //                        location.put("coordinates",point);
 
 
-                        row.put("location",location);
+                            row.put("location", location);
+                        }
 
                         if(rs.isFirst()) {
                             esMapping(dbName, tbName, row);
 //                            new ESCreateMappingThread(ESUrl,dbName,tbName,row).run();
                         }
 //                        es(dbName,tbName,rs.getString("id"),row);
-                        new ESInsertDataThread(ESUrl,dbName,tbName,rs.getString("id"),row).run();
+                        String id = "";
+                        try{
+                            id = rs.getString("id");
+                        }catch (Exception e){
+                            logger.info("[dbName="+dbName+",tbName="+tbName+"]"+"Id is not exist! Will be default ID");
+                        }
+                        new ESInsertDataThread(ESUrl,dbName,tbName,id,row).run();
                     }
                 }
             }
@@ -239,11 +261,12 @@ public class Mysql2es{
                 propertiesMap.put(key,temp);
             }
             /*增加地理信息字段*/
-            HashMap location = new HashMap();
-            location.put("type","geo_point"); //点
+            if(row.get(latStr)!=null && row.get(lonStr)!=null) {
+                HashMap location = new HashMap();
+                location.put("type", "geo_point"); //点
 //            location.put("type","geo_shape");     //面
-            propertiesMap.put("location",location);
-
+                propertiesMap.put("location", location);
+            }
             HashMap indexMap = new HashMap();
             HashMap mappingsMap = new HashMap();
             HashMap  docMap= new HashMap();
@@ -271,6 +294,34 @@ public class Mysql2es{
             String json = objectMapper.writeValueAsString(indexMap);
             logger.info(json);
             outputStream.write(json.getBytes());
+
+            InputStream inputStream = httpURLConnection.getInputStream();
+//            System.out.println(inputStream);
+
+            httpURLConnection.disconnect();
+        } catch (MalformedURLException e) {
+            logger.error("error",e);
+        } catch (IOException e) {
+            logger.error("error",e);
+        }
+    }
+
+    public void esDeleteAll(){
+        logger.info("esMapping ...");
+        try {
+
+            URL url = new URL(ESUrl+"_all");
+            URLConnection urlConnection = url.openConnection();
+            HttpURLConnection httpURLConnection = (HttpURLConnection)urlConnection;
+
+            /*输入默认为false，post需要打开*/
+            httpURLConnection.setDoInput(true);
+            httpURLConnection.setDoOutput(true);
+            httpURLConnection.setRequestProperty("Content-Type","application/json");
+            httpURLConnection.setRequestMethod("DELETE");
+            httpURLConnection.setConnectTimeout(3000);
+
+            httpURLConnection.connect();
 
             InputStream inputStream = httpURLConnection.getInputStream();
 //            System.out.println(inputStream);
