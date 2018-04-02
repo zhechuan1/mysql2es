@@ -31,7 +31,7 @@ public class Mysql2es{
     public static String lonStr = "X";
 
     public void doPerHour(){
-        esDeleteAll();
+//        esDeleteAll();
 
         String driver = "com.mysql.jdbc.Driver";
         String URL = "jdbc:mysql://localhost:3306/";
