@@ -17,31 +17,29 @@ import java.util.*;
  * 同步所有库，除mysql系统库：information_schema、mysql、performance_schema
  * 库名对应es的索引，表名对应type，一行数据对应一个id
  */
-public class Mysql2es {
+public class Mysql2es{
 
     public static final Logger logger = LoggerFactory.getLogger(Mysql2es.class);
     public static void main(String[] args){
         logger.info("start copy data from mysql to es ...");
         Mysql2es mysql2es = new Mysql2es();
         mysql2es.doPerHour();
-//        HashMap hashMap = new HashMap();
-//        hashMap.put("user_uuid","unified-authentication80c577f772ae43df93ca416f99a271ad");
-//        hashMap.put("account","123");
-//        hashMap.put("password","YTY2NWE0NTkyMDQyMmY5ZDQxN2U0ODY3ZWZkYzRmYjhhMDRhMWYzZmZmMWZhMDdlOTk4ZTg2ZjdmN2EyN2FlMw");
-//        mysql2es.es("db_unified_authentication","tb_user_info","3",hashMap);
+
     }
-    public static String ESUrl = "http://www.justplay1994.win:10000/";
+    public static String ESUrl = "http://192.168.3.250:10000/";
+    public static String latStr = "Y";
+    public static String lonStr = "X";
+
     public void doPerHour(){
         String driver = "com.mysql.jdbc.Driver";
-//        String URL = "jdbc:mysql://localhost:3306/";
-        String URL = "jdbc:mysql://10.0.12.189:3306/";
+        String URL = "jdbc:mysql://localhost:3306/";
         Connection con = null;
         ResultSet rs = null;
         Statement st = null;
         String sql = "select * from ";
         String USERNAME = "root";
-//        String PASSWORD = "123456";
-        String PASSWORD = "centos";
+        String PASSWORD = "123456";
+
         String[] skipDB = {"information_schema","mysql","performance_schema"};
 
         int dbNum = 0;
@@ -113,7 +111,7 @@ public class Mysql2es {
                     /*将数据逐条存入es中*/
                     while(rs.next()){
                         rowNum++;
-                        HashMap<String,String> row = new HashMap<String, String>();
+                        HashMap<String, Object> row = new HashMap<String, Object>();
                         for(int i = 0; i < dbs.get(dbName).get(tbName).size();++i) {
                             colNum++;
                             String colName = dbs.get(dbName).get(tbName).get(i);
@@ -126,9 +124,26 @@ public class Mysql2es {
                         logger.info("【"+dbName+"】【"+tbName+"】");
                         logger.info(row.toString());
 
-                        if(rs.isFirst())
-                            esMapping(dbName,tbName,row);
-                        es(dbName,tbName,rs.getString("id"),row);
+
+//                        /*地理坐标点添加至location中*/
+                        HashMap location = new HashMap();
+                        /*点point*/
+                        location.put("lat",row.get(latStr));
+                        location.put("lon",row.get(lonStr));
+                        /*面*/
+//                        location.put("type", "point");
+//                        String[] point = {(String)row.get(lonStr),(String)row.get(latStr)};
+//                        location.put("coordinates",point);
+
+
+                        row.put("location",location);
+
+                        if(rs.isFirst()) {
+                            esMapping(dbName, tbName, row);
+//                            new ESCreateMappingThread(ESUrl,dbName,tbName,row).run();
+                        }
+//                        es(dbName,tbName,rs.getString("id"),row);
+                        new ESInsertDataThread(ESUrl,dbName,tbName,rs.getString("id"),row).run();
                     }
                 }
             }
@@ -156,7 +171,7 @@ public class Mysql2es {
      * @param id
      * @param row
      */
-    public void es(String dbName, String tbName, String id, Map<String,String> row){
+    public void es(String dbName, String tbName, String id, Map<String,Object> row){
         logger.info("es ...");
         try {
             /*es索引要求必须是小写*/
@@ -188,9 +203,9 @@ public class Mysql2es {
 
             httpURLConnection.disconnect();
         } catch (MalformedURLException e) {
-            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【id】"+id+"【row】:"+row,e);
+            logger.error("error",e);
         } catch (IOException e) {
-            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【id】"+id+"【row】:"+row,e);
+            logger.error("error",e);
         }
     }
 
@@ -204,7 +219,7 @@ public class Mysql2es {
      * @param tbName
      * @param row
      */
-    public void esMapping(String dbName, String tbName, Map<String,String> row){
+    public void esMapping(String dbName, String tbName, Map<String,Object> row){
         logger.info("esMapping ...");
         try {
             /*es索引要求必须是小写*/
@@ -214,11 +229,21 @@ public class Mysql2es {
             HashMap propertiesMap = new HashMap();
             Set<String> set = row.keySet();
             Iterator<String> iterator = set.iterator();
+
+
+            /*映射基础字段*/
             while(iterator.hasNext()){
                 HashMap temp = new HashMap();
-                temp.put("type","text");
-                propertiesMap.put(iterator.next(),temp);
+                String key = iterator.next();
+                temp.put("type", "text");
+                propertiesMap.put(key,temp);
             }
+            /*增加地理信息字段*/
+            HashMap location = new HashMap();
+            location.put("type","geo_point"); //点
+//            location.put("type","geo_shape");     //面
+            propertiesMap.put("location",location);
+
             HashMap indexMap = new HashMap();
             HashMap mappingsMap = new HashMap();
             HashMap  docMap= new HashMap();
@@ -252,9 +277,9 @@ public class Mysql2es {
 
             httpURLConnection.disconnect();
         } catch (MalformedURLException e) {
-            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【row】:"+row,e);
+            logger.error("error",e);
         } catch (IOException e) {
-            logger.error("【dbName】"+dbName+"【tbName】+"+tbName+"【row】:"+row,e);
+            logger.error("error",e);
         }
     }
 }
