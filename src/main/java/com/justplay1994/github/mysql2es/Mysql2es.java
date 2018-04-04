@@ -1,25 +1,32 @@
 package com.justplay1994.github.mysql2es;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.sql.*;
 import java.util.*;
 
 /**
- * 同步所有库，除mysql系统库：information_schema、mysql、performance_schema
- * 库名对应es的索引，表名对应type，一行数据对应一个id
+ * Created by JustPlay1994 on 2018/4/3.
+ * https://github.com/JustPlay1994/daily-log-manager
  */
-public class Mysql2es{
+
+/**
+ * 批量数据插入
+ */
+public class Mysql2es {
 
     public static final Logger logger = LoggerFactory.getLogger(Mysql2es.class);
+
     public static void main(String[] args){
         logger.info("start copy data from mysql to es ...");
         Mysql2es mysql2es = new Mysql2es();
@@ -29,25 +36,32 @@ public class Mysql2es{
     public static String ESUrl = "http://192.168.3.250:10000/";
     public static String latStr = "Y";
     public static String lonStr = "X";
+    public static int BULKSIZE = 10*1024*1024;/*批量块大小，单位：B*/
+    public static int maxThreadCount = 8;/*最大线程数*/
+    String driver = "com.mysql.jdbc.Driver";
+    String URL = "jdbc:mysql://localhost:3306/";
+    String USER = "root";
+    String PASSWORD = "123456";
 
+    public static String indexName(String dbName,String tbName){
+        return dbName+"@"+tbName;
+    }
+    String[] skipDB = {"information_schema","mysql","performance_schema",
+            "zentaopro","zentaobiz","zentao"
+    };
+    /*
+
+    */
     public void doPerHour(){
-//        esDeleteAll();
+        logger.info("delete es all data...");
+        esDeleteAll();
+        logger.info("delete finished!");
 
-        String driver = "com.mysql.jdbc.Driver";
-        String URL = "jdbc:mysql://localhost:3306/";
+
         Connection con = null;
         ResultSet rs = null;
         Statement st = null;
         String sql = "select * from ";
-        String USER = "root";
-        String PASSWORD = "123456";
-
-        String[] skipDB = {"information_schema","mysql","performance_schema"};
-
-        int dbNum = 0;
-        int tbNum = 0;
-        int colNum = 0;
-        int rowNum = 0;
 
         Properties properties = new Properties();
         properties.setProperty("user",USER);
@@ -73,8 +87,7 @@ public class Mysql2es{
         try
         {
             /*查询所有库、表、字段*/
-//            con= DriverManager.getConnection(URL+"information_schema",USER,PASSWORD);
-            con= DriverManager.getConnection(URL+"information_schema",properties);
+            con= DriverManager.getConnection(URL + "information_schema", properties);
             logger.info("Connect mysql Successfull.");
 
             st=con.createStatement();
@@ -83,150 +96,85 @@ public class Mysql2es{
 //            rs  = st.executeQuery();
             rs = st.executeQuery(sql+"COLUMNS");
 
-            HashMap<String,HashMap<String,ArrayList<String>>> dbs = new HashMap<String, HashMap<String, ArrayList<String>>>();
+            /*获取所有库、表、列名开始*/
+            List<DatabaseNode> databaseNodeList = new ArrayList<DatabaseNode>();
 
+            DatabaseNode lastDB = null;
+            TableNode lastTable = null;
             while(rs.next()){
-
                 String colStr = rs.getString("COLUMN_NAME");
                 String tbStr = rs.getString("TABLE_NAME");
                 String dbStr = rs.getString("TABLE_SCHEMA");
-                if(dbs.get(dbStr)==null){
-                    dbs.put(dbStr,new HashMap<String, ArrayList<String>>());
-                }
-                if(dbs.get(dbStr).get(tbStr)==null){
-                    dbs.get(dbStr).put(tbStr,new ArrayList<String>());
-                }
-                dbs.get(dbStr).get(tbStr).add(colStr);
-            }
 
-            Set<String> dbSet = dbs.keySet();
-            Iterator<String> dbIt = dbSet.iterator();
-            while(dbIt.hasNext()){
-                dbNum++;
-                String dbName = dbIt.next();
                 boolean skip = false;
-                for(int s = 0; s < skipDB.length; ++s){
-                    if(skipDB[s].equals(dbName)){
+                for(int i = 0; i < skipDB.length; ++i){
+                    if(dbStr.equals(skipDB[i])){
                         skip=true;
                         break;
                     }
                 }
                 if(skip)continue;
-//                con = DriverManager.getConnection(URL+dbName,USER,PASSWORD);
-                con = DriverManager.getConnection(URL+dbName,properties);
 
-                st = con.createStatement();
-                Set<String> tbSet = dbs.get(dbName).keySet();
-                Iterator<String> tbIt = tbSet.iterator();
-                while(tbIt.hasNext()) {
-                    tbNum++;
-                    String tbName = tbIt.next();
-                    rs = st.executeQuery(sql +tbName);
-                    /*将数据逐条存入es中*/
-                    while(rs.next()){
-                        rowNum++;
-                        HashMap<String, Object> row = new HashMap<String, Object>();
-                        for(int i = 0; i < dbs.get(dbName).get(tbName).size();++i) {
-                            colNum++;
-                            String colName = dbs.get(dbName).get(tbName).get(i);
-                            String value = rs.getString(colName);
-//                            System.out.println("【"+dbName+"】【"+tbName+"】【"+colName+"】"+value);
-//                            if(value!=null)value = URLEncoder.encode(value,"UTF-8");
-//                            row.put(tbName+"__"+colName,value);/*es相同索引，即便不同type也不允许有同名字段，因为是扁平化存储*/
-                            row.put(colName,value);
-                        }
-                        logger.info("【"+dbName+"】【"+tbName+"】");
-                        logger.info(row.toString());
-
-                        /*如果存在经纬度坐标，则进行类型转换*/
-                        if(row.get(latStr)!=null && row.get(lonStr)!=null) {
-//                        /*地理坐标点添加至location中*/
-                            HashMap location = new HashMap();
-                        /*点point*/
-                            location.put("lat", row.get(latStr));
-                            location.put("lon", row.get(lonStr));
-                        /*面*/
-//                        location.put("type", "point");
-//                        String[] point = {(String)row.get(lonStr),(String)row.get(latStr)};
-//                        location.put("coordinates",point);
-
-
-                            row.put("location", location);
-                        }
-
-                        if(rs.isFirst()) {
-                            esMapping(dbName, tbName, row);
-//                            new ESCreateMappingThread(ESUrl,dbName,tbName,row).run();
-                        }
-//                        es(dbName,tbName,rs.getString("id"),row);
-                        String id = "";
-                        try{
-                            id = rs.getString("id");
-                        }catch (Exception e){
-                            logger.info("[dbName="+dbName+",tbName="+tbName+"]"+"Id is not exist! Will be default ID");
-                        }
-                        new ESInsertDataThread(ESUrl,dbName,tbName,id,row).run();
+                if (lastDB==null){
+                    lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
+                    lastTable =null;
+                    databaseNodeList.add(lastDB);
+                }else{
+                    if(!dbStr.equals(lastDB.getDbName())){
+                        lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
+                        lastTable =null;
+                        databaseNodeList.add(lastDB);
+                    }
+                }
+                if(lastTable==null){
+                    lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
+                    lastTable.getColumns().add(colStr);
+                    lastDB.getTableNodeList().add(lastTable);
+                }else{
+                    if(!tbStr.equals(lastTable.getTableName())){
+                        lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
+                        lastTable.getColumns().add(colStr);
+                        lastDB.getTableNodeList().add(lastTable);
+                    }else{
+                        lastTable.getColumns().add(colStr);
                     }
                 }
             }
+            /*获取所有库、表、列名结束*/
 
-            logger.info("Finished!");
-            logger.info("db number: "+dbNum);
-            logger.info("tb nubmer: "+tbNum);
-            logger.info("row number: "+rowNum);
-            logger.info("colum number: "+colNum);
-
+            /*遍历表结构*/
+            Iterator<DatabaseNode> databaseNodeIt = databaseNodeList.iterator();
+            while(databaseNodeIt.hasNext()){
+                DatabaseNode databaseNode = databaseNodeIt.next();
+                /*获取数据库连接*/
+                con = DriverManager.getConnection(URL+databaseNode.getDbName(),properties);
+                Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
+                while(tableNodeIterator.hasNext()){
+                    TableNode tableNode = tableNodeIterator.next();
+                    /*sql查询该表所有数据*/
+                    st=con.createStatement();
+                    rs = st.executeQuery(sql+tableNode.getTableName());
+                    while(rs.next()){
+                        ResultSetMetaData md = rs.getMetaData();
+                        int columnCount = md.getColumnCount();
+                        ArrayList<String> row = new ArrayList<String>();
+                        for(int i = 1; i <= columnCount; ++i) {
+                            row.add(rs.getString(i));
+                        }
+                        tableNode.getRows().add(row);
+                    }
+                }
+            }
+            logger.info("data is all in memory!");
+            new ESBulkData(ESUrl,databaseNodeList).inputData();
+            /*TODO 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
             rs.close();
             st.close();
             con.close();
+
         }
         catch(Exception e)
         {
-            logger.error("error",e);
-        }
-    }
-
-    /**
-     * es6.0已经移除了type
-     * @param dbName
-     * @param tbName
-     * @param id
-     * @param row
-     */
-    public void es(String dbName, String tbName, String id, Map<String,Object> row){
-        logger.info("es ...");
-        try {
-            /*es索引要求必须是小写*/
-            dbName = dbName.toLowerCase();
-            tbName = tbName.toLowerCase();
-
-            URL url = new URL(ESUrl+dbName+"@"+tbName+"/_doc/"+id);
-            URLConnection urlConnection = url.openConnection();
-            HttpURLConnection httpURLConnection = (HttpURLConnection)urlConnection;
-
-            /*输入默认为false，post需要打开*/
-            httpURLConnection.setDoInput(true);
-            httpURLConnection.setDoOutput(true);
-            httpURLConnection.setRequestProperty("Content-Type","application/json");
-            httpURLConnection.setRequestMethod("POST");
-            httpURLConnection.setConnectTimeout(3000);
-
-            httpURLConnection.connect();
-
-            OutputStream outputStream = httpURLConnection.getOutputStream();
-
-            ObjectMapper objectMapper = new ObjectMapper();
-            String json = objectMapper.writeValueAsString(row);
-            logger.info(json);
-            outputStream.write(json.getBytes());
-
-            InputStream inputStream = httpURLConnection.getInputStream();
-//            System.out.println(inputStream);
-
-            httpURLConnection.disconnect();
-        } catch (MalformedURLException e) {
-            logger.error("error",e);
-        } catch (IOException e) {
             logger.error("error",e);
         }
     }
@@ -333,4 +281,24 @@ public class Mysql2es{
             logger.error("error",e);
         }
     }
+
+//    public static int BULKSIZE = 5*1024*1024;   /*B*/
+//    /**
+//     *
+//     * @param rows 总数据
+//     */
+//    public void traversalRows(Map<String, Map<String, List>> rows) {
+//        logger.info("es ...");
+//        try {
+//
+//
+////            logger.info(json);
+//
+//            logger.info("BULK length = " + String.valueOf(json.length()));
+//
+//
+//        } catch (IOException e) {
+//            logger.error("error", e);
+//        }
+//    }
 }

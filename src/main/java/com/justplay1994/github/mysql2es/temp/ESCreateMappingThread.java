@@ -1,4 +1,4 @@
-package com.justplay1994.github.mysql2es;
+package com.justplay1994.github.mysql2es.temp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.LogManager;
 
 /**
  * Created by JustPlay1994 on 2018/4/2.

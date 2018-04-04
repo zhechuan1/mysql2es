@@ -1,4 +1,4 @@
-package com.justplay1994.github.mysql2es;
+package com.justplay1994.github.mysql2es.temp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -11,10 +11,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Created by JustPlay1994 on 2018/4/2.
