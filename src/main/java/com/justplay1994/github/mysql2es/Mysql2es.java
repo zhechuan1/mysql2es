@@ -42,6 +42,9 @@ public class Mysql2es {
     String URL = "jdbc:mysql://localhost:3306/";
     String USER = "root";
     String PASSWORD = "123456";
+    static int dbNumber=0;/*数据库总数量*/
+    static int tbNumber = 0;/*表总数量*/
+    static long rowNumber=0;/*总数据量*/
 
     public static String indexName(String dbName,String tbName){
         return dbName+"@"+tbName;
@@ -145,16 +148,19 @@ public class Mysql2es {
             /*遍历表结构*/
             Iterator<DatabaseNode> databaseNodeIt = databaseNodeList.iterator();
             while(databaseNodeIt.hasNext()){
+                dbNumber++;
                 DatabaseNode databaseNode = databaseNodeIt.next();
                 /*获取数据库连接*/
                 con = DriverManager.getConnection(URL+databaseNode.getDbName(),properties);
                 Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
                 while(tableNodeIterator.hasNext()){
+                    tbNumber++;
                     TableNode tableNode = tableNodeIterator.next();
                     /*sql查询该表所有数据*/
                     st=con.createStatement();
                     rs = st.executeQuery(sql+tableNode.getTableName());
                     while(rs.next()){
+                        rowNumber++;
                         ResultSetMetaData md = rs.getMetaData();
                         int columnCount = md.getColumnCount();
                         ArrayList<String> row = new ArrayList<String>();
@@ -165,7 +171,13 @@ public class Mysql2es {
                     }
                 }
             }
+
             logger.info("data is all in memory!");
+            logger.info("========================");
+            logger.info("dbNumber: "+dbNumber);
+            logger.info("tbNumber: "+tbNumber);
+            logger.info("rowNumber: "+rowNumber);
+            logger.info("========================");
             new ESBulkData(ESUrl,databaseNodeList).inputData();
             /*TODO 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
             rs.close();
@@ -281,6 +293,7 @@ public class Mysql2es {
             logger.error("error",e);
         }
     }
+
 
 //    public static int BULKSIZE = 5*1024*1024;   /*B*/
 //    /**

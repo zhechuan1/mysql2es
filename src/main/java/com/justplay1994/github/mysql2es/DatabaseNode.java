@@ -35,4 +35,5 @@ public class DatabaseNode {
     public void setTableNodeList(List<TableNode> tableNodeList) {
         this.tableNodeList = tableNodeList;
     }
+
 }

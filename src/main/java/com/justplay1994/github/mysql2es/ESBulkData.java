@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.*;
+import java.text.DecimalFormat;
 import java.util.*;
 
 /**
@@ -37,8 +38,12 @@ public class ESBulkData{
 
     public void inputData(){
 
-        int last = 0;
-        int now = 0;
+
+        /*用于按块大小，切分批量数据请求*/
+        int last = 0;/*上一次对块数据量整除，得到的值*/
+        int now = 0;/*当前对块数据量整除，得到的值*/
+
+        int blockRowNumber = 0;/*当前数据块的数据量大小，行数*/
 
         StringBuilder json = new StringBuilder();
         /*遍历数据，构造请求参数*/
@@ -68,6 +73,8 @@ public class ESBulkData{
                 /*遍历数据*/
                 Iterator<ArrayList<String>> iterator = tableNode.getRows().iterator();
                 while (iterator.hasNext()) {
+                    blockRowNumber++;
+
                     Map map = new HashMap();/*数据*/
                     ArrayList<String> row = iterator.next();
                     for(int i = 0; i < row.size(); ++i){
@@ -92,8 +99,9 @@ public class ESBulkData{
                     }
                     now = json.length()/Mysql2es.BULKSIZE;
                     if(now >last) {
+
                         last = now;
-                        new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString())).start();
+                        new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
                         index=json.length()-1;
                         ESBulkDataThread.threadCount++;
                         while(ESBulkDataThread.threadCount>=Mysql2es.maxThreadCount){
@@ -105,6 +113,7 @@ public class ESBulkData{
                                 logger.error("sleep error!",e);
                             }
                         }
+                        blockRowNumber = 0;
                     }
                 }
 
@@ -112,7 +121,7 @@ public class ESBulkData{
         }
         /*执行剩下的数据插入动作*/
         ESBulkDataThread.threadCount++;
-        new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString())).start();
+        new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
         while(ESBulkDataThread.threadCount!=0){
             logger.info("wait thread number : " + ESBulkDataThread.threadCount);
             long time = 1000;

@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.*;
+import java.text.DecimalFormat;
 import java.util.Map;
 
 /**
@@ -19,10 +20,13 @@ public class ESBulkDataThread implements Runnable {
     static int threadCount = 0;
     String ESUrl;
     String json;
+    static int nowRowNumber = 0; /*已导入数据量*/
+    private int blockRowNumber = 0;/*当前数据块大小*/
 
-    public ESBulkDataThread(String ESUrl, String json){
+    public ESBulkDataThread(String ESUrl, String json, int blockRowNumber){
         this.ESUrl = ESUrl;
         this.json = json;
+        this.blockRowNumber = blockRowNumber;
     }
 
     public void run() {
@@ -85,11 +89,28 @@ public class ESBulkDataThread implements Runnable {
             logger.error("【BulkDataError】", e);
         }finally {
             changeThreadCount();/*同步操作，互斥锁*/
-            logger.info("Thread input end! Thread count = "+threadCount);
+            logger.info("Thread input end! Thread count = " + threadCount);
+            changeNowRowNumber();/*打印进度条*/
+
         }
     }
 
     synchronized public static void changeThreadCount() {
         threadCount --;
+    }
+
+    public int getBlockRowNumber() {
+        return blockRowNumber;
+    }
+
+    public void setBlockRowNumber(int blockRowNumber) {
+        this.blockRowNumber = blockRowNumber;
+    }
+
+    /*打印进度条*/
+    synchronized public void changeNowRowNumber(){
+        nowRowNumber+=blockRowNumber;
+        DecimalFormat df = new DecimalFormat("0.00");
+        logger.info("has finished: "+ df.format(((float)nowRowNumber/Mysql2es.rowNumber)*100)+"%");
     }
 }
