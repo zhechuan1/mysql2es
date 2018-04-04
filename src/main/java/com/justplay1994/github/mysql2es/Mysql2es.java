@@ -33,6 +33,25 @@ public class Mysql2es {
         mysql2es.doPerHour();
 
     }
+    public Mysql2es(){
+        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
+        Properties properties = new Properties();
+        try {
+            properties.load(inputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        this.ESUrl = properties.getProperty("ESUrl");
+        this.latStr = (String) properties.get("latStr");
+        this.lonStr = (String) properties.get("lonStr");
+        this.BULKSIZE = Integer.parseInt(properties.get("BULKSIZE").toString())*1024*1024;
+        this.maxThreadCount = Integer.parseInt(properties.get("maxThreadCount").toString());
+        this.driver = (String) properties.get("driver");
+        this.URL = (String) properties.get("URL");
+        this.USER = (String) properties.get("USER");
+        this.PASSWORD = (String) properties.get("PASSWORD");
+    }
+
     public static String ESUrl = "http://192.168.3.250:10000/";
     public static String latStr = "Y";
     public static String lonStr = "X";
