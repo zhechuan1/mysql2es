@@ -75,9 +75,9 @@ public class Mysql2es {
 
     */
     public void doPerHour(){
-        logger.info("delete es all data...");
-        esDeleteAll();
-        logger.info("delete finished!");
+//        logger.info("delete es all data...");
+//        esDeleteAll();
+//        logger.info("delete finished!");
 
 
         Connection con = null;
