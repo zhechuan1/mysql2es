@@ -1,13 +1,15 @@
-package com.justplay1994.github.mysql2es;//package com.justplay1994.github.mysql2es;
+package com.justplay1994.github.mysql2es.es;//package com.justplay1994.github.mysql2es;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.justplay1994.github.mysql2es.Mysql2es;
+import com.justplay1994.github.mysql2es.database.DatabaseNode;
+import com.justplay1994.github.mysql2es.database.TableNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.*;
-import java.text.DecimalFormat;
 import java.util.*;
 
 /**
@@ -28,7 +30,7 @@ public class ESBulkData{
     StringBuilder json = new StringBuilder();/*StringBuild更快，单线程使用*/
     int index = 0;
     ObjectMapper objectMapper = new ObjectMapper();
-    ESBulkData(String ESUrl, List<DatabaseNode> rows) {
+    public ESBulkData(String ESUrl, List<DatabaseNode> rows) {
         this.ESUrl = ESUrl;
         this.rows = rows;
         /*执行数据插入*/
@@ -54,6 +56,21 @@ public class ESBulkData{
             while(tableNodeIterator.hasNext()){
 
                 TableNode tableNode = tableNodeIterator.next();
+                //每张表先创建mapping关系
+//                new ESGeoMapping(Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName()),ESUrl);
+
+                String mapping =
+                        "        {\n" +
+                        "            \"mappings\": {\n" +
+                        "                \"_doc\": {\n" +
+                        "                    \"properties\": {\n" +
+                        "                        \"location\": { \"type\": \"geo_point\"  }\n" +
+                        "                    }\n" +
+                        "                }\n" +
+                        "            }\n" +
+                        "        }";
+                createMapping(Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName()),mapping);
+
                 /*找到经纬度的下标*/
                 int lat=-1;
                 int lon=-1;
@@ -134,7 +151,7 @@ public class ESBulkData{
         logger.info("All finished!");
     }
 
-    public void createMapping(String dbName, String tbName, String mapping){
+    public void createMapping(String indexName, String mapping){
         logger.info("creating mapping...");
 
         /*创建索引映射*/
@@ -142,7 +159,7 @@ public class ESBulkData{
         try {
             URL url;
 
-            url = new URL(ESUrl + dbName+"@"+tbName);
+            url = new URL(ESUrl + indexName);
             logger.debug(url.toString());
             logger.debug(mapping);
 
@@ -155,7 +172,7 @@ public class ESBulkData{
             httpURLConnection.setDoOutput(true);
             httpURLConnection.setRequestProperty("Content-Type", "application/json");
 
-            httpURLConnection.setRequestMethod("POST");
+            httpURLConnection.setRequestMethod("PUT");
 
 
 //            httpURLConnection.setConnectTimeout(3000);

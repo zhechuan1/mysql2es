@@ -2,6 +2,9 @@ package com.justplay1994.github.mysql2es;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.justplay1994.github.mysql2es.database.DatabaseNode;
+import com.justplay1994.github.mysql2es.database.TableNode;
+import com.justplay1994.github.mysql2es.es.ESBulkData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,9 +64,10 @@ public class Mysql2es {
     String URL = "jdbc:mysql://localhost:3306/";
     String USER = "root";
     String PASSWORD = "123456";
-    static int dbNumber=0;/*数据库总数量*/
-    static int tbNumber = 0;/*表总数量*/
-    static long rowNumber=0;/*总数据量*/
+    public static int dbNumber=0;/*数据库总数量*/
+    public static int tbNumber = 0;/*表总数量*/
+    public static long rowNumber=0;/*总数据量*/
+
 
     public static String indexName(String dbName,String tbName){
         return dbName+"@"+tbName;
@@ -75,9 +79,9 @@ public class Mysql2es {
 
     */
     public void doPerHour(){
-//        logger.info("delete es all data...");
-//        esDeleteAll();
-//        logger.info("delete finished!");
+        logger.info("delete es all data...");
+        esDeleteAll();
+        logger.info("delete finished!");
 
 
         Connection con = null;

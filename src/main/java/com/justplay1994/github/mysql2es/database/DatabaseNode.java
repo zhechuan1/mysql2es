@@ -1,4 +1,4 @@
-package com.justplay1994.github.mysql2es;
+package com.justplay1994.github.mysql2es.database;
 
 import java.util.List;
 

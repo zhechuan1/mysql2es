@@ -1,6 +1,7 @@
-package com.justplay1994.github.mysql2es;
+package com.justplay1994.github.mysql2es.es;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.justplay1994.github.mysql2es.Mysql2es;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -111,6 +112,6 @@ public class ESBulkDataThread implements Runnable {
     synchronized public void changeNowRowNumber(){
         nowRowNumber+=blockRowNumber;
         DecimalFormat df = new DecimalFormat("0.00");
-        logger.info("has finished: "+ df.format(((float)nowRowNumber/Mysql2es.rowNumber)*100)+"%");
+        logger.info("has finished: "+ df.format(((float)nowRowNumber/ Mysql2es.rowNumber)*100)+"%");
     }
 }
