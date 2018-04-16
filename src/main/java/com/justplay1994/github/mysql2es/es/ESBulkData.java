@@ -11,6 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by JustPlay1994 on 2018/4/2.
@@ -40,6 +43,14 @@ public class ESBulkData{
 
     public void inputData(){
 
+        //新的方式：使用线程池
+//        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+//                8,
+//                10,
+//                200,
+//                TimeUnit.MILLISECONDS,
+//                new ArrayBlockingQueue<Runnable>(8)     //等待队列
+//        );
 
         /*用于按块大小，切分批量数据请求*/
         int last = 0;/*上一次对块数据量整除，得到的值*/
@@ -118,11 +129,16 @@ public class ESBulkData{
                     if(now >last) {
 
                         last = now;
+                        //以前多线程方式：增加线程处理
                         new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
+                        //新的方式：以线程池方式启动
+//                        executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
+
                         index=json.length()-1;
                         ESBulkDataThread.threadCount++;
                         while(ESBulkDataThread.threadCount>=Mysql2es.maxThreadCount){
                             logger.debug("max Thread:"+ESBulkDataThread.threadCount);
+//                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
                             long time = 200;
                             try {
                                 Thread.sleep(time);
@@ -138,7 +154,10 @@ public class ESBulkData{
         }
         /*执行剩下的数据插入动作*/
         ESBulkDataThread.threadCount++;
+        //以前多线程方式：增加线程处理
         new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
+        //新的方式：以线程池方式启动
+        //executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
         while(ESBulkDataThread.threadCount!=0){
             logger.info("wait thread number : " + ESBulkDataThread.threadCount);
             long time = 1000;
@@ -148,6 +167,8 @@ public class ESBulkData{
                 logger.error("sleep error!",e);
             }
         }
+        /*关闭线程池*/
+//        executor.shutdown();
         logger.info("All finished!");
     }
 
