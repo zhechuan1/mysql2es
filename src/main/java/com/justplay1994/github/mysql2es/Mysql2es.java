@@ -72,8 +72,7 @@ public class Mysql2es {
     public static String indexName(String dbName,String tbName){
         return dbName+"@"+tbName;
     }
-    String[] skipDB = {"information_schema","mysql","performance_schema",
-            "zentaopro","zentaobiz","zentao"
+    String[] skipDB = {"information_schema","mysql","performance_schema","sys"
     };
     /*
 
