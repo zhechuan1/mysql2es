@@ -68,8 +68,6 @@ public class ESBulkData{
 
                 TableNode tableNode = tableNodeIterator.next();
                 //每张表先创建mapping关系
-//                new ESGeoMapping(Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName()),ESUrl);
-
                 String mapping =
                         "        {\n" +
                         "            \"mappings\": {\n" +
@@ -149,15 +147,18 @@ public class ESBulkData{
                         blockRowNumber = 0;
                     }
                 }
-
+                /*执行每张表，剩下的数据插入动作*/
+                last = now;
+                ESBulkDataThread.threadCount++;
+                //以前多线程方式：增加线程处理
+                new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
+                //新的方式：以线程池方式启动
+                //executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
+                index=json.length()-1;
+                blockRowNumber = 0;
             }
         }
-        /*执行剩下的数据插入动作*/
-        ESBulkDataThread.threadCount++;
-        //以前多线程方式：增加线程处理
-        new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
-        //新的方式：以线程池方式启动
-        //executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
+
         while(ESBulkDataThread.threadCount!=0){
             logger.info("wait thread number : " + ESBulkDataThread.threadCount);
             long time = 1000;
@@ -167,9 +168,18 @@ public class ESBulkData{
                 logger.error("sleep error!",e);
             }
         }
+
         /*关闭线程池*/
 //        executor.shutdown();
         logger.info("All finished!");
+        logger.info("========================");
+        logger.info("dbNumber: "+Mysql2es.dbNumber);
+        logger.info("tbNumber: "+Mysql2es.tbNumber);
+        logger.info("rowNumber: "+Mysql2es.rowNumber);
+        logger.info("total bulk body size(MB): "+json.length()/1024/1024);
+        logger.info("========================");
+
+        /*TODO 查询es相关索引的数据量，验证数据量是否一致*/
     }
 
     public void createMapping(String indexName, String mapping){
