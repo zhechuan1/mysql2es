@@ -83,11 +83,14 @@ public class ESBulkDataThread implements Runnable {
             httpURLConnection.disconnect();
 
         } catch (MalformedURLException e) {
-            logger.error("【BulkDataError】", e);
+            logger.error("【BulkDataError1】", e);
+            logger.error(json);
         } catch (ProtocolException e) {
-            logger.error("【BulkDataError】", e);
+            logger.error("【BulkDataError2】", e);
+            logger.error(json);
         } catch (IOException e) {
-            logger.error("【BulkDataError】", e);
+            logger.error("【BulkDataError3】", e);
+            logger.error(json);
         }finally {
             changeThreadCount();/*同步操作，互斥锁*/
             logger.info("Thread input end! Thread count = " + threadCount);

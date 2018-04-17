@@ -148,14 +148,16 @@ public class ESBulkData{
                     }
                 }
                 /*执行每张表，剩下的数据插入动作*/
-                last = now;
-                ESBulkDataThread.threadCount++;
-                //以前多线程方式：增加线程处理
-                new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
-                //新的方式：以线程池方式启动
-                //executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
-                index=json.length()-1;
-                blockRowNumber = 0;
+                if(index != json.length()-1) {/*如果剩余数据是空，则不执行*/
+                    last = now;
+                    ESBulkDataThread.threadCount++;
+                    //以前多线程方式：增加线程处理
+                    new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
+                    //新的方式：以线程池方式启动
+                    //executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
+                    index = json.length() - 1;
+                    blockRowNumber = 0;
+                }
             }
         }
 
