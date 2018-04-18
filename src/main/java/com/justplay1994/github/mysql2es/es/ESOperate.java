@@ -111,4 +111,6 @@ public class ESOperate {
                 "}";
         return MyURLConnection.request("http://192.168.16.54:9200/_search?size=1&from=1","POST",body);
     }
+
+
 }
