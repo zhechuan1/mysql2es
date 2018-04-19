@@ -34,7 +34,7 @@ public class ESBulkData{
     public static final Logger logger = LoggerFactory.getLogger(ESBulkData.class);
     StringBuilder json = new StringBuilder();/*StringBuild更快，单线程使用*/
     ObjectMapper objectMapper = new ObjectMapper();
-    StringBuilder retryTable = new StringBuilder();
+    static StringBuilder retryTable = new StringBuilder();
 
     public ESBulkData(String ESUrl, List<DatabaseNode> rows) {
         this.ESUrl = ESUrl;
@@ -89,7 +89,7 @@ public class ESBulkData{
         }
         /*遍历数据，构造请求参数*/
         databaseNodeIt = rows.iterator();
-        boolean skip = false;
+        boolean skip = true;
         while(databaseNodeIt.hasNext()){/*遍历库*/
             DatabaseNode databaseNode = databaseNodeIt.next();
             Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
@@ -99,9 +99,9 @@ public class ESBulkData{
                 if(DatabaseNodeListInfo.retryTimes > 0) {
                     /*判断本次重试，该表是否需要跳过*/
                     String[] str = retryTable.toString().split(",");
-                    for (int i = 0; i < str.length; ++i) {
+                    for (int i = 0; i < str.length; ++i) {/*默认跳过，直到找到需要重试的表为止*/
                         if (databaseNode.getDbName().equals(str[i].split("\\.")[0]) && tableNode.getTableName().equals(str[i].split("\\.")[1])) {
-                            skip = true;
+                            skip = false;
                             break;
                         }
                     }
@@ -283,7 +283,7 @@ public class ESBulkData{
         long esTotalRowNumber = 0;
         logger.info("check data number ...");
         /*查询es相关索引的数据量，验证数据量是否一致*/
-        boolean skip = false;
+        boolean skip = true;
         Iterator<DatabaseNode> databaseNodeIt = rows.iterator();
         while (databaseNodeIt.hasNext()) {
             DatabaseNode databaseNode = databaseNodeIt.next();
@@ -304,9 +304,9 @@ public class ESBulkData{
                 if(DatabaseNodeListInfo.retryTimes > 0) {
                     /*判断本次重试，该表是否需要跳过*/
                     String[] str = retryTable.toString().split(",");
-                    for (int i = 0; i < str.length; ++i) {
+                    for (int i = 0; i < str.length; ++i) {/*默认跳过，直到找到需要重试的表*/
                         if (dbName.equals(str[i].split("\\.")[0]) && tbName.equals(str[i].split("\\.")[1])) {
-                            skip = true;
+                            skip = false;
                             break;
                         }
                     }
