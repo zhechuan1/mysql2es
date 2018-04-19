@@ -162,20 +162,12 @@ public class ESBulkData{
                     }
                     /*等待请求body满一个数据块大小，便开始执行请求*/
                     if(json.length()>=Mysql2es.BULKSIZE) {
-
-                        //以前多线程方式：增加线程处理
-//                        new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)).start();
-                        //新的方式：以线程池方式启动
-//                        executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
-//                        index=json.length()-1;
-
                         /*为了节约内存空间，每次请求完成，则删除请求体*/
                         executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.toString(), blockRowNumber)));
                         jsonSize+=json.length();
                         json.delete(0,json.length());
-
-
-
+                        blockRowNumber = 0;
+                        /*如果当前线程数达到最大值，则阻塞等待*/
                         while(executor.getActiveCount()>=Mysql2es.maxThreadCount){
                             logger.debug("max Thread:"+executor.getActiveCount());
 //                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
@@ -186,26 +178,16 @@ public class ESBulkData{
                                 logger.error("sleep error!",e);
                             }
                         }
-                        blockRowNumber = 0;
                     }
                 }
-                /*将每张表剩下的数据，执行插入数据*/
-//                if(index != json.length()-1) {/*如果剩余数据是空，则不执行*/
-//                    last = now;
-//                    ESBulkDataThread.threadCount++;
-//                    //以前多线程方式：增加线程处理
-//                    new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)).start();
-//                    //新的方式：以线程池方式启动
-//                    //executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
-//                    index = json.length() - 1;
-//                    blockRowNumber = 0;
-//                }
             }
         }
+        /*将剩余不足一个数据块的数据单独发起请求*/
+        executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.toString(), blockRowNumber)));
 
         /*阻塞等待线程结束*/
         while(executor.getActiveCount()!=0){
-            logger.info("wait thread number : " + executor.getActiveCount());
+//            logger.info("wait thread number : " + executor.getActiveCount());
             long time = 1000;
             try {
                 Thread.sleep(time);
@@ -218,36 +200,42 @@ public class ESBulkData{
 
         /*关闭线程池*/
         executor.shutdown();
-
-        logger.info("========================");
-        checkAllData();
-        logger.info("All finished!");
+        logger.info("first finished!");
         logger.info("========================");
         logger.info("dbNumber: "+ DatabaseNodeListInfo.dbNumber);
         logger.info("tbNumber: "+DatabaseNodeListInfo.tbNumber);
         logger.info("rowNumber: "+DatabaseNodeListInfo.rowNumber);
         logger.info("total bulk body size(MB): "+jsonSize/1024/1024);
-        logger.info("========================");
-        if(DatabaseNodeListInfo.retryRowNumber>0){
-//            logger.info("retry finished!");
-//            logger.info("========================");
-//            logger.info("retry times: "+DatabaseNodeListInfo.retryRowNumber);
-//            logger.info("total bulk body size(MB): "+jsonSize/1024/1024);
-//            logger.info("========================");
+        try {
+            String str = new MyURLConnection().request(ESUrl + "/_search", "POST", "");
+            Map map = objectMapper.readValue(str, Map.class);
+            long esNumber = Integer.parseInt(((LinkedHashMap) map.get("hits")).get("total").toString());
+            logger.info("es total row number: "+esNumber);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
+        logger.info("========================");
 
+
+
+
+
+        checkAllData();
 
         /*判断是否有需要重新导入的表*/
         if(retryTable.length()>0 && Mysql2es.retryNumber>0){
-            logger.info("************************");
-            logger.info("retry the failed table");
             /*开始重试导入检查数据量失败的表*/
             Mysql2es.retryNumber--;/*剩余重试次数-1*/
+            /*在数据信息中，添加重试次数以及重试数据总量*/
             DatabaseNodeListInfo.retryTimes++;/*重试次数+1*/
             /*初始化进度条*/
-            ESBulkDataThread.nowRowNumber=0;
-            ESBulkDataThread.nowFailedRowNumber=0;
+            ESBulkDataThread.nowRowNumber=0;/*初始化成功数量百分比*/
+            ESBulkDataThread.nowFailedRowNumber=0;/*初始化失败数量百分比*/
+            logger.info("************************");
+            logger.info("retry the failed table");
+            logger.info("already retry number: "+DatabaseNodeListInfo.retryTimes);
+            logger.info("leaves retry number: "+Mysql2es.retryNumber);
             /*开始重试*/
             Mysql2es.reTryInput();
             logger.info("retry finished");
@@ -280,6 +268,7 @@ public class ESBulkData{
      * 检查数量
      */
     public void checkAllData(){
+        DatabaseNodeListInfo.retryRowNumber=0;/*重置需要本次重试的数据总量*/
         long esTotalRowNumber = 0;
         logger.info("check data number ...");
         /*查询es相关索引的数据量，验证数据量是否一致*/
@@ -320,7 +309,7 @@ public class ESBulkData{
 
             }
         }
-        logger.info("es total row number: "+esTotalRowNumber);
+        logger.info("this times es row number: "+esTotalRowNumber);
         logger.info("check data number finished !");
     }
 
@@ -341,5 +330,6 @@ public class ESBulkData{
             logger.error("[check number error]", e);
         }
     }
-    /*TODO 重试目前有3个BUG：1.进度条、2.重复插入数据而不是更新、3.检查数量时，竟然有非重试表出现、4.总数据相等，但却有3张表数据缺少？*/
+    /*TODO 重试目前有3个BUG：1.进度条[v]、2.重复插入数据而不是更新、3.检查数量时，竟然有非重试表出现[v]、4.总数据相等，但却有3张表数据缺少？*/
+    /*TODO 同上面第四条，es总数据量和各个索引加起来不相等、估计要看es的机制*/
 }

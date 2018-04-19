@@ -55,7 +55,7 @@ public class Mysql2es {
     public static String[] justReadDB;
     /*必须读取表的集合*/
     public static String[] justReadTB;
-    /*数据量校验失败的表，重试次数*/
+    /*数据量校验失败的表，最大重试次数*/
     public static int retryNumber;
 
     static Properties properties = new Properties();/*Mysql相关属性*/

@@ -59,7 +59,6 @@ public class ESBulkDataThread implements Runnable {
                 logger.error("insert error:");
                 logger.error(getRequestFullData());
                 addNowFailedRowNumber(blockRowNumber);
-
             }else {
                 addNowRowNumber(blockRowNumber);
 //                nowRowNumber+=blockRowNumber;
@@ -80,7 +79,7 @@ public class ESBulkDataThread implements Runnable {
         }finally {
 //            changeThreadCount();/*同步操作，互斥锁*/
 //            logger.info("Thread input end! Thread count = " + threadCount);
-            changeNowRowNumber();/*打印进度条*/
+            printNowRowNumber();/*打印进度条*/
         }
     }
 
@@ -89,14 +88,14 @@ public class ESBulkDataThread implements Runnable {
 //    }
 
     /*打印进度条*/
-    synchronized public void changeNowRowNumber(){
+    synchronized public void printNowRowNumber(){
 
         DecimalFormat df = new DecimalFormat("0.00");
         if(DatabaseNodeListInfo.retryTimes>0) {/*如果是重试，则打印重试总数据量的进度条*/
-            logger.info("has finished: " + df.format(((float) nowRowNumber / DatabaseNodeListInfo.retryRowNumber) * 100) + "%");
+            logger.info("has finished: " + df.format(((float) nowRowNumber / DatabaseNodeListInfo.retryRowNumber) * 100) + "% "+nowRowNumber+"/"+DatabaseNodeListInfo.retryRowNumber);
             logger.info("has error: " + df.format(((float) nowFailedRowNumber / DatabaseNodeListInfo.retryRowNumber) * 100) + "%");
         }else {/*非重试，则打印总数据量的进度条*/
-            logger.info("has finished: " + df.format(((float) nowRowNumber / DatabaseNodeListInfo.rowNumber) * 100) + "%");
+            logger.info("has finished: " + df.format(((float) nowRowNumber / DatabaseNodeListInfo.rowNumber) * 100) + "% "+nowRowNumber+"/"+DatabaseNodeListInfo.rowNumber);
             logger.info("has error: " + df.format(((float) nowFailedRowNumber / DatabaseNodeListInfo.rowNumber) * 100) + "%");
         }
     }
