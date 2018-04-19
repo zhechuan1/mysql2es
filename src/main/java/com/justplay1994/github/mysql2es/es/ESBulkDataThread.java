@@ -20,7 +20,7 @@ import java.util.Map;
 public class ESBulkDataThread implements Runnable {
     public static final Logger logger = LoggerFactory.getLogger(ESBulkDataThread.class);
 
-    static int threadCount = 0;
+//    static int threadCount = 0;
     String ESUrl;
 
     static int nowRowNumber = 0; /*已导入数据量*/
@@ -44,7 +44,7 @@ public class ESBulkDataThread implements Runnable {
     public void run() {
         try {
             /*开始导入数据，当前工作线程数量打印*/
-            logger.info("input begin! Thread count = " + threadCount);
+//            logger.info("input begin! Thread count = " + threadCount);
 
             url = ESUrl + "_bulk";
             type = "POST";/*必须大写*/
@@ -58,54 +58,60 @@ public class ESBulkDataThread implements Runnable {
             if("ture".equals(map.get("errors"))){
                 logger.error("insert error:");
                 logger.error(getRequestFullData());
-                nowFailedRowNumber+=blockRowNumber;
+                addNowFailedRowNumber(blockRowNumber);
+
             }else {
-                nowRowNumber+=blockRowNumber;
+                addNowRowNumber(blockRowNumber);
+//                nowRowNumber+=blockRowNumber;
             }
 
-
         } catch (MalformedURLException e) {
-            nowFailedRowNumber+=blockRowNumber;
+            addNowFailedRowNumber(blockRowNumber);
             logger.error("【BulkDataError1】", e);
             logger.error(getRequestFullData());
         } catch (ProtocolException e) {
-            nowFailedRowNumber+=blockRowNumber;
+            addNowFailedRowNumber(blockRowNumber);
             logger.error("【BulkDataError2】", e);
             logger.error(getRequestFullData());
         } catch (IOException e) {
-            nowFailedRowNumber+=blockRowNumber;
+            addNowFailedRowNumber(blockRowNumber);
             logger.error("【BulkDataError3】", e);
             logger.error(getRequestFullData());
         }finally {
-            changeThreadCount();/*同步操作，互斥锁*/
-            logger.info("Thread input end! Thread count = " + threadCount);
+//            changeThreadCount();/*同步操作，互斥锁*/
+//            logger.info("Thread input end! Thread count = " + threadCount);
             changeNowRowNumber();/*打印进度条*/
         }
     }
 
-    synchronized public static void changeThreadCount() {
-        threadCount --;
-    }
-
-    public int getBlockRowNumber() {
-        return blockRowNumber;
-    }
-
-    public void setBlockRowNumber(int blockRowNumber) {
-        this.blockRowNumber = blockRowNumber;
-    }
+//    synchronized public static void changeThreadCount() {
+//        threadCount --;
+//    }
 
     /*打印进度条*/
     synchronized public void changeNowRowNumber(){
 
         DecimalFormat df = new DecimalFormat("0.00");
-        logger.info("has finished: "+ df.format(((float)nowRowNumber/ DatabaseNodeListInfo.rowNumber)*100)+"%");
-        logger.info("has error: "+ df.format(((float)nowFailedRowNumber/ DatabaseNodeListInfo.rowNumber)*100)+"%");
+        if(DatabaseNodeListInfo.retryTimes>0) {/*如果是重试，则打印重试总数据量的进度条*/
+            logger.info("has finished: " + df.format(((float) nowRowNumber / DatabaseNodeListInfo.retryRowNumber) * 100) + "%");
+            logger.info("has error: " + df.format(((float) nowFailedRowNumber / DatabaseNodeListInfo.retryRowNumber) * 100) + "%");
+        }else {/*非重试，则打印总数据量的进度条*/
+            logger.info("has finished: " + df.format(((float) nowRowNumber / DatabaseNodeListInfo.rowNumber) * 100) + "%");
+            logger.info("has error: " + df.format(((float) nowFailedRowNumber / DatabaseNodeListInfo.rowNumber) * 100) + "%");
+        }
     }
 
     /*获取完整请求信息*/
     public String getRequestFullData(){
         return "[request] url:"+url+",type:"+type+",body:"+json+"" +
                 "\n[result]: "+result;
+    }
+
+    synchronized void addNowRowNumber(long addNumber){
+        nowRowNumber+=addNumber;
+    }
+
+    synchronized void addNowFailedRowNumber(long addNumber){
+        nowFailedRowNumber+=addNumber;
     }
 }

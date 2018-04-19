@@ -37,10 +37,10 @@ public class Mysql2es {
     public static String lonStr = "X";
     public static int BULKSIZE = 10*1024*1024;/*批量块大小，单位：B*/
     public static int maxThreadCount = 8;/*最大线程数*/
-    String driver = "com.mysql.jdbc.Driver";
-    String URL = "jdbc:mysql://localhost:3306/";
-    String USER = "root";
-    String PASSWORD = "123456";
+    static String driver = "com.mysql.jdbc.Driver";
+    static String URL = "jdbc:mysql://localhost:3306/";
+    static String USER = "root";
+    static String PASSWORD = "123456";
 
 //    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
 //    public static int dbNumber=0;/*数据库总数量*/
@@ -55,8 +55,10 @@ public class Mysql2es {
     public static String[] justReadDB;
     /*必须读取表的集合*/
     public static String[] justReadTB;
+    /*数据量校验失败的表，重试次数*/
+    public static int retryNumber;
 
-    Properties properties = new Properties();/*Mysql相关属性*/
+    static Properties properties = new Properties();/*Mysql相关属性*/
 
     /**
      * 索引与库表名的关系映射
@@ -72,7 +74,7 @@ public class Mysql2es {
     public static void main(String[] args){
         logger.info("start copy data from mysql to es ...");
         Mysql2es mysql2es = new Mysql2es();
-        mysql2es.doPerHour();
+        mysql2es.doInput();
     }
     public Mysql2es(){
         InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
@@ -95,6 +97,7 @@ public class Mysql2es {
         skipTB = properties.get("skipTB")!=null ? ((String)properties.get("skipTB")).replace(" ","").split(","):null;
         justReadDB = properties.get("justReadDB")!=null ? ((String)properties.get("justReadDB")).replace(" ","").split(","):null;
         justReadTB = properties.get("justReadTB")!=null ? ((String)properties.get("justReadTB")).replace(" ","").split(","):null;
+        retryNumber = Integer.parseInt((String) properties.get("retryNumber"));
 
         /*初始化Mysql属性*/
         properties.setProperty("user",USER);
@@ -110,12 +113,7 @@ public class Mysql2es {
         properties.setProperty("zeroDateTimeBehavior","convertToNull");
     }
 
-
-
-
-
-    public void doPerHour(){
-
+    public static void doInput(){
         /*注册驱动，那么在多线程，多种驱动的情况下，会发生什么？
         * 按照博客http://hllvm.group.iteye.com/group/topic/39251
         * 的说法，Class.forName会被阻塞
@@ -148,9 +146,7 @@ public class Mysql2es {
             logger.info("rowNumber: "+ DatabaseNodeListInfo.rowNumber);
             logger.info("========================");
 
-            /*开始导入数据至es中*/
-            new ESBulkData(ESUrl, DatabaseNodeListInfo.databaseNodeList).inputData();
-
+            reTryInput();
         }
         catch(SQLException e)
         {
@@ -158,12 +154,17 @@ public class Mysql2es {
         }
     }
 
+    public static void reTryInput(){
+        /*开始导入数据至es中*/
+        new ESBulkData(ESUrl, DatabaseNodeListInfo.databaseNodeList).inputData();
+    }
+
     /**
      * 获取所有库表结构，保存至databaseNodeList
      * @return
      * @throws SQLException
      */
-    public void getAllDatabaseStructure() throws SQLException {
+    public static void getAllDatabaseStructure() throws SQLException {
         /*连接Mysql相关变量*/
         Connection con = null;
         ResultSet rs = null;
@@ -270,7 +271,7 @@ public class Mysql2es {
      * 遍历表结构，获取所有数据，保存至databaseNodeList
      * @throws SQLException
      */
-    public void getAllData() throws SQLException {
+    public static void getAllData() throws SQLException {
         /*连接Mysql相关变量*/
         Connection con = null;
         ResultSet rs = null;
@@ -323,7 +324,7 @@ public class Mysql2es {
      * @param tbName
      * @param row
      */
-    public void esMapping(String dbName, String tbName, Map<String,Object> row){
+    public static void esMapping(String dbName, String tbName, Map<String,Object> row){
         logger.info("esMapping ...");
         try {
             /*es索引要求必须是小写*/
@@ -388,7 +389,7 @@ public class Mysql2es {
         }
     }
 
-    public void esDeleteAll(){
+    public static void esDeleteAll(){
         logger.info("delete already exist and conflict index ...");
         try {
 
