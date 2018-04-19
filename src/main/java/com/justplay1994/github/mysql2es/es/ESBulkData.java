@@ -64,7 +64,7 @@ public class ESBulkData{
         long jsonSize = 0;
         Iterator<DatabaseNode> databaseNodeIt;
         /*遍历数据，构造Mapping*/
-        if(DatabaseNodeListInfo.retryRowNumber<=0) {/*如果不是重试，则创建mapping映射*/
+        if(DatabaseNodeListInfo.retryTimes<=0) {/*如果不是重试，则创建mapping映射*/
             databaseNodeIt = rows.iterator();
             while (databaseNodeIt.hasNext()) {
                 DatabaseNode databaseNode = databaseNodeIt.next();
