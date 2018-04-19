@@ -1,18 +1,24 @@
 package com.justplay1994.github.mysql2es.http.client.urlConnection;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.*;
-import java.util.Map;
 
 public class MyURLConnection {
     private static final Logger logger = LoggerFactory.getLogger(MyURLConnection.class);
     public MyURLConnection(){
 
     }
+
+    /**
+     * 单线程 http客户端
+     * @param _url
+     * @param type
+     * @param body
+     * @return
+     */
     public static String request(String _url, String type, String body){
         try {
 
@@ -45,7 +51,7 @@ public class MyURLConnection {
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "utf-8"));
             StringBuilder builder = new StringBuilder();
-            String line = null;
+            String line;
             while ((line = reader.readLine()) != null) {
                 builder.append(line).append("\n");
             }

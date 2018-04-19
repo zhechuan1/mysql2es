@@ -11,9 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by JustPlay1994 on 2018/4/2.
@@ -33,10 +30,10 @@ public class ESBulkData{
     StringBuilder json = new StringBuilder();/*StringBuild更快，单线程使用*/
     int index = 0;
     ObjectMapper objectMapper = new ObjectMapper();
+
     public ESBulkData(String ESUrl, List<DatabaseNode> rows) {
         this.ESUrl = ESUrl;
         this.rows = rows;
-        /*执行数据插入*/
     }
 
 
@@ -67,7 +64,7 @@ public class ESBulkData{
             while(tableNodeIterator.hasNext()){
 
                 TableNode tableNode = tableNodeIterator.next();
-                //每张表先创建mapping关系
+                //每张表先创建mapping关系，创建location为地理信息点类型
                 String mapping =
                         "        {\n" +
                         "            \"mappings\": {\n" +
@@ -84,7 +81,7 @@ public class ESBulkData{
                 int lat=-1;
                 int lon=-1;
 
-                /*遍历列名*/
+                /*遍历列名，找到经纬度字段对应下标*/
                 for(int i = 0; i < tableNode.getColumns().size(); ++i){
 
                     if(Mysql2es.latStr.equals(tableNode.getColumns().get(i))){
@@ -107,7 +104,7 @@ public class ESBulkData{
                         map.put(tableNode.getColumns().get(i),row.get(i));
 
                     }
-                    /*有经纬度信息，则需要进行转换*/
+                    /*根据已找到的经纬度字段，进行格式转换*/
                     if(lat!=-1 && lon!=-1){
                         HashMap location = new HashMap();
                         location.put("lat",row.get(lat));
@@ -123,6 +120,7 @@ public class ESBulkData{
                     } catch (JsonProcessingException e) {
                         logger.error("To json error!",e);
                     }
+                    /*等待请求body满一个数据块大小，便开始执行请求*/
                     now = json.length()/Mysql2es.BULKSIZE;
                     if(now >last) {
 
@@ -147,12 +145,12 @@ public class ESBulkData{
                         blockRowNumber = 0;
                     }
                 }
-                /*执行每张表，剩下的数据插入动作*/
+                /*将每张表剩下的数据，执行插入数据*/
                 if(index != json.length()-1) {/*如果剩余数据是空，则不执行*/
                     last = now;
                     ESBulkDataThread.threadCount++;
                     //以前多线程方式：增加线程处理
-                    new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
+                    new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)).start();
                     //新的方式：以线程池方式启动
                     //executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
                     index = json.length() - 1;
@@ -161,6 +159,7 @@ public class ESBulkData{
             }
         }
 
+        /*阻塞等待线程结束*/
         while(ESBulkDataThread.threadCount!=0){
             logger.info("wait thread number : " + ESBulkDataThread.threadCount);
             long time = 1000;

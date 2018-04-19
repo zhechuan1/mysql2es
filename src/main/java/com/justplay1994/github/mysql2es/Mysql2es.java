@@ -30,31 +30,6 @@ public class Mysql2es {
 
     public static final Logger logger = LoggerFactory.getLogger(Mysql2es.class);
 
-    public static void main(String[] args){
-        logger.info("start copy data from mysql to es ...");
-        Mysql2es mysql2es = new Mysql2es();
-        mysql2es.doPerHour();
-
-    }
-    public Mysql2es(){
-        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
-        Properties properties = new Properties();
-        try {
-            properties.load(inputStream);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        this.ESUrl = properties.getProperty("ESUrl");
-        this.latStr = (String) properties.get("latStr");
-        this.lonStr = (String) properties.get("lonStr");
-        this.BULKSIZE = Integer.parseInt(properties.get("BULKSIZE").toString())*1024*1024;
-        this.maxThreadCount = Integer.parseInt(properties.get("maxThreadCount").toString());
-        this.driver = (String) properties.get("driver");
-        this.URL = (String) properties.get("URL");
-        this.USER = (String) properties.get("USER");
-        this.PASSWORD = (String) properties.get("PASSWORD");
-    }
-
     public static String ESUrl = "http://192.168.3.250:10000/";
     public static String latStr = "Y";
     public static String lonStr = "X";
@@ -64,31 +39,62 @@ public class Mysql2es {
     String URL = "jdbc:mysql://localhost:3306/";
     String USER = "root";
     String PASSWORD = "123456";
+
+    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
     public static int dbNumber=0;/*数据库总数量*/
     public static int tbNumber = 0;/*表总数量*/
     public static long rowNumber=0;/*总数据量*/
 
+    /*跳过的数据库的集合*/
+    public static String[] skipDB = {"information_schema","mysql","performance_schema","sys"};
+    /*跳过表的集合*/
+    public static String[] skipTB;
+    /*必须读取库的集合*/
+    public static String[] justReadDB;
+    /*必须读取表的集合*/
+    public static String[] justReadTB;
 
+    Properties properties = new Properties();/*Mysql相关属性*/
+
+    /**
+     * 索引与库表名的关系映射
+     * @param dbName
+     * @param tbName
+     * @return 索引名称
+     */
     public static String indexName(String dbName,String tbName){
         return tbName+"@"+dbName;
     }
-    String[] skipDB = {"information_schema","mysql","performance_schema","sys"
-    };
-    /*
-
-    */
-    public void doPerHour(){
-        logger.info("delete es all data...");
-        esDeleteAll();
-        logger.info("delete finished!");
 
 
-        Connection con = null;
-        ResultSet rs = null;
-        Statement st = null;
-        String sql = "select * from ";
+    public static void main(String[] args){
+        logger.info("start copy data from mysql to es ...");
+        Mysql2es mysql2es = new Mysql2es();
+        mysql2es.doPerHour();
+    }
+    public Mysql2es(){
+        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
 
-        Properties properties = new Properties();
+        try {
+            properties.load(inputStream);
+        } catch (IOException e) {
+            logger.error("读取配置文件失败",e);
+        }
+        ESUrl = properties.getProperty("ESUrl");
+        latStr = (String) properties.get("latStr");
+        lonStr = (String) properties.get("lonStr");
+        BULKSIZE = Integer.parseInt(properties.get("BULKSIZE").toString())*1024*1024;
+        maxThreadCount = Integer.parseInt(properties.get("maxThreadCount").toString());
+        this.driver = (String) properties.get("driver");
+        this.URL = (String) properties.get("URL");
+        this.USER = (String) properties.get("USER");
+        this.PASSWORD = (String) properties.get("PASSWORD");
+        skipDB = properties.get("skipDB")!=null ? ((String)properties.get("skipDB")).replace(" ","").split(","):skipDB;
+        skipTB = properties.get("skipTB")!=null ? ((String)properties.get("skipTB")).replace(" ","").split(","):null;
+        justReadDB = properties.get("justReadDB")!=null ? ((String)properties.get("justReadDB")).replace(" ","").split(","):null;
+        justReadTB = properties.get("justReadTB")!=null ? ((String)properties.get("justReadTB")).replace(" ","").split(","):null;
+
+        /*初始化Mysql属性*/
         properties.setProperty("user",USER);
         properties.setProperty("password",PASSWORD);
         properties.setProperty("useSSL","false");
@@ -100,7 +106,23 @@ public class Mysql2es {
         参考 https://blog.csdn.net/ja_II_ck/article/details/3905120
         */
         properties.setProperty("zeroDateTimeBehavior","convertToNull");
+    }
 
+
+
+
+
+    public void doPerHour(){
+        logger.info("delete es all data...");
+        esDeleteAll();
+        logger.info("delete finished!");
+
+
+
+        /*注册驱动，那么在多线程，多种驱动的情况下，会发生什么？
+        * 按照博客http://hllvm.group.iteye.com/group/topic/39251
+        * 的说法，Class.forName会被阻塞
+        * */
         try
         {
             Class.forName(driver);
@@ -111,106 +133,180 @@ public class Mysql2es {
         }
         try
         {
-            /*查询所有库、表、字段*/
-            con= DriverManager.getConnection(URL + "information_schema", properties);
-            logger.info("Connect mysql Successfull.");
 
-            st=con.createStatement();
+            /*获取所有表结构*/
+            getAllDatabaseStructure();
 
-//            st.setString(1,"tb_person_time");
-//            rs  = st.executeQuery();
-            rs = st.executeQuery(sql+"COLUMNS");
+            /*获取所有数据*/
+            getAllData();
 
-            /*获取所有库、表、列名开始*/
-            List<DatabaseNode> databaseNodeList = new ArrayList<DatabaseNode>();
-
-            DatabaseNode lastDB = null;
-            TableNode lastTable = null;
-            while(rs.next()){
-                String colStr = rs.getString("COLUMN_NAME");
-                String tbStr = rs.getString("TABLE_NAME");
-                String dbStr = rs.getString("TABLE_SCHEMA");
-
-                boolean skip = false;
-                for(int i = 0; i < skipDB.length; ++i){
-                    if(dbStr.equals(skipDB[i])){
-                        skip=true;
-                        break;
-                    }
-                }
-                if(skip)continue;
-
-                if (lastDB==null){
-                    lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
-                    lastTable =null;
-                    databaseNodeList.add(lastDB);
-                }else{
-                    if(!dbStr.equals(lastDB.getDbName())){
-                        lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
-                        lastTable =null;
-                        databaseNodeList.add(lastDB);
-                    }
-                }
-                if(lastTable==null){
-                    lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
-                    lastTable.getColumns().add(colStr);
-                    lastDB.getTableNodeList().add(lastTable);
-                }else{
-                    if(!tbStr.equals(lastTable.getTableName())){
-                        lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
-                        lastTable.getColumns().add(colStr);
-                        lastDB.getTableNodeList().add(lastTable);
-                    }else{
-                        lastTable.getColumns().add(colStr);
-                    }
-                }
-            }
-            /*获取所有库、表、列名结束*/
-
-            /*遍历表结构*/
-            Iterator<DatabaseNode> databaseNodeIt = databaseNodeList.iterator();
-            while(databaseNodeIt.hasNext()){
-                dbNumber++;
-                DatabaseNode databaseNode = databaseNodeIt.next();
-                /*获取数据库连接*/
-                con = DriverManager.getConnection(URL+databaseNode.getDbName(),properties);
-                Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
-                while(tableNodeIterator.hasNext()){
-                    tbNumber++;
-                    TableNode tableNode = tableNodeIterator.next();
-                    /*sql查询该表所有数据*/
-                    st=con.createStatement();
-                    rs = st.executeQuery(sql+tableNode.getTableName());
-                    while(rs.next()){
-                        rowNumber++;
-                        ResultSetMetaData md = rs.getMetaData();
-                        int columnCount = md.getColumnCount();
-                        ArrayList<String> row = new ArrayList<String>();
-                        for(int i = 1; i <= columnCount; ++i) {
-                            row.add(rs.getString(i));
-                        }
-                        tableNode.getRows().add(row);
-                    }
-                }
-            }
-
+            /*打印获取的数据总量情况*/
             logger.info("data is all in memory!");
             logger.info("========================");
             logger.info("dbNumber: "+dbNumber);
             logger.info("tbNumber: "+tbNumber);
             logger.info("rowNumber: "+rowNumber);
             logger.info("========================");
+
+            /*开始导入数据至es中*/
             new ESBulkData(ESUrl,databaseNodeList).inputData();
-            /*TODO 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
-            rs.close();
-            st.close();
-            con.close();
 
         }
-        catch(Exception e)
+        catch(SQLException e)
         {
-            logger.error("error",e);
+            logger.error("mysql error",e);
         }
+    }
+
+    /**
+     * 获取所有库表结构，保存至databaseNodeList
+     * @return
+     * @throws SQLException
+     */
+    public void getAllDatabaseStructure() throws SQLException {
+        /*连接Mysql相关变量*/
+        Connection con = null;
+        ResultSet rs = null;
+        Statement st = null;
+
+        String sql = "select * from ";
+
+        /*查询所有库、表、字段*/
+        con= DriverManager.getConnection(URL + "information_schema", properties);
+
+        logger.info("Connect mysql Successfull.");
+
+        st=con.createStatement();
+
+//            st.setString(1,"tb_person_time");
+//            rs  = st.executeQuery();
+        rs = st.executeQuery(sql+"COLUMNS");
+
+            /*获取所有库、表、列名开始*/
+        databaseNodeList = new ArrayList<DatabaseNode>();
+
+        DatabaseNode lastDB = null;
+        TableNode lastTable = null;
+        while(rs.next()){
+            String colStr = rs.getString("COLUMN_NAME");
+            String tbStr = rs.getString("TABLE_NAME");
+            String dbStr = rs.getString("TABLE_SCHEMA");
+
+            boolean skip = false;
+            /*判断该库是否是必须读取*/
+            if(justReadDB!=null){
+                skip = true;
+                for(int i = 0; i < justReadDB.length; ++i){
+                    if(dbStr.equals(justReadDB[i])){
+                        skip = false;
+                        break;
+                    }
+                }
+            }
+            /*判断该表是否是必须读取*/
+            if(justReadTB!=null){
+                skip = true;
+                for(int i = 0; i < justReadTB.length; ++i){
+                    if(dbStr.equals(justReadTB[i].split("\\.")[0]) && tbStr.equals(justReadTB[i].split("\\.")[1])){
+                        skip = false;
+                        break;
+                    }
+                }
+            }
+            /*判断该库是否需要跳过*/
+            if(skipDB!=null) {
+                for (int i = 0; i < skipDB.length; ++i) {
+                    if (dbStr.equals(skipDB[i])) {
+                        skip = true;
+                        break;
+                    }
+                }
+            }
+            /*判断该表是否需要跳过*/
+            if(skipTB!=null) {
+                for (int i = 0; i < skipTB.length; ++i) {
+                    if (dbStr.equals(skipTB[i].split("\\.")[0]) && tbStr.equals(skipTB[i].split("\\.")[1])) {
+                        skip = true;
+                        break;
+                    }
+                }
+            }
+
+            if(skip)continue;
+
+            if (lastDB==null){
+                lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
+                lastTable =null;
+                databaseNodeList.add(lastDB);
+            }else{
+                if(!dbStr.equals(lastDB.getDbName())){
+                    lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
+                    lastTable =null;
+                    databaseNodeList.add(lastDB);
+                }
+            }
+            if(lastTable==null){
+                lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
+                lastTable.getColumns().add(colStr);
+                lastDB.getTableNodeList().add(lastTable);
+            }else{
+                if(!tbStr.equals(lastTable.getTableName())){
+                    lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
+                    lastTable.getColumns().add(colStr);
+                    lastDB.getTableNodeList().add(lastTable);
+                }else{
+                    lastTable.getColumns().add(colStr);
+                }
+            }
+        }
+        /*获取所有库、表、列名结束*/
+        /*TODO 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
+        rs.close();
+        st.close();
+        con.close();
+    }
+
+    /**
+     * 遍历表结构，获取所有数据，保存至databaseNodeList
+     * @throws SQLException
+     */
+    public void getAllData() throws SQLException {
+        /*连接Mysql相关变量*/
+        Connection con = null;
+        ResultSet rs = null;
+        Statement st = null;
+
+        String sql = "select * from ";
+
+        Iterator<DatabaseNode> databaseNodeIt = databaseNodeList.iterator();
+        while(databaseNodeIt.hasNext()){
+            dbNumber++;
+            DatabaseNode databaseNode = databaseNodeIt.next();
+                /*获取数据库连接*/
+            con = DriverManager.getConnection(URL+databaseNode.getDbName(),properties);
+            Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
+            while(tableNodeIterator.hasNext()){
+                tbNumber++;
+                TableNode tableNode = tableNodeIterator.next();
+                    /*sql查询该表所有数据*/
+                st=con.createStatement();
+                rs = st.executeQuery(sql+tableNode.getTableName());
+                while(rs.next()){
+                    rowNumber++;
+                    ResultSetMetaData md = rs.getMetaData();
+                    int columnCount = md.getColumnCount();
+                    ArrayList<String> row = new ArrayList<String>();
+                    for(int i = 1; i <= columnCount; ++i) {
+                        row.add(rs.getString(i));
+                    }
+                    tableNode.getRows().add(row);
+                }
+            }
+        }
+        /*TODO 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
+        rs.close();
+        st.close();
+        con.close();
     }
 
     /**
@@ -316,24 +412,4 @@ public class Mysql2es {
         }
     }
 
-
-//    public static int BULKSIZE = 5*1024*1024;   /*B*/
-//    /**
-//     *
-//     * @param rows 总数据
-//     */
-//    public void traversalRows(Map<String, Map<String, List>> rows) {
-//        logger.info("es ...");
-//        try {
-//
-//
-////            logger.info(json);
-//
-//            logger.info("BULK length = " + String.valueOf(json.length()));
-//
-//
-//        } catch (IOException e) {
-//            logger.error("error", e);
-//        }
-//    }
 }
