@@ -3,6 +3,7 @@ package com.justplay1994.github.mysql2es;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justplay1994.github.mysql2es.database.DatabaseNode;
+import com.justplay1994.github.mysql2es.database.DatabaseNodeListInfo;
 import com.justplay1994.github.mysql2es.database.TableNode;
 import com.justplay1994.github.mysql2es.es.ESBulkData;
 import org.slf4j.Logger;
@@ -40,10 +41,10 @@ public class Mysql2es {
     String USER = "root";
     String PASSWORD = "123456";
 
-    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
-    public static int dbNumber=0;/*数据库总数量*/
-    public static int tbNumber = 0;/*表总数量*/
-    public static long rowNumber=0;/*总数据量*/
+//    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
+//    public static int dbNumber=0;/*数据库总数量*/
+//    public static int tbNumber = 0;/*表总数量*/
+//    public static long rowNumber=0;/*总数据量*/
 
     /*跳过的数据库的集合*/
     public static String[] skipDB = {"information_schema","mysql","performance_schema","sys"};
@@ -143,13 +144,13 @@ public class Mysql2es {
             /*打印获取的数据总量情况*/
             logger.info("data is all in memory!");
             logger.info("========================");
-            logger.info("dbNumber: "+dbNumber);
-            logger.info("tbNumber: "+tbNumber);
-            logger.info("rowNumber: "+rowNumber);
+            logger.info("dbNumber: "+ DatabaseNodeListInfo.dbNumber);
+            logger.info("tbNumber: "+ DatabaseNodeListInfo.tbNumber);
+            logger.info("rowNumber: "+ DatabaseNodeListInfo.rowNumber);
             logger.info("========================");
 
             /*开始导入数据至es中*/
-            new ESBulkData(ESUrl,databaseNodeList).inputData();
+            new ESBulkData(ESUrl, DatabaseNodeListInfo.databaseNodeList).inputData();
 
         }
         catch(SQLException e)
@@ -183,7 +184,7 @@ public class Mysql2es {
         rs = st.executeQuery(sql+"COLUMNS");
 
             /*获取所有库、表、列名开始*/
-        databaseNodeList = new ArrayList<DatabaseNode>();
+        DatabaseNodeListInfo.databaseNodeList = new ArrayList<DatabaseNode>();
 
         DatabaseNode lastDB = null;
         TableNode lastTable = null;
@@ -237,12 +238,12 @@ public class Mysql2es {
             if (lastDB==null){
                 lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
                 lastTable =null;
-                databaseNodeList.add(lastDB);
+                DatabaseNodeListInfo.databaseNodeList.add(lastDB);
             }else{
                 if(!dbStr.equals(lastDB.getDbName())){
                     lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
                     lastTable =null;
-                    databaseNodeList.add(lastDB);
+                    DatabaseNodeListInfo.databaseNodeList.add(lastDB);
                 }
             }
             if(lastTable==null){
@@ -278,21 +279,21 @@ public class Mysql2es {
 
         String sql = "select * from ";
 
-        Iterator<DatabaseNode> databaseNodeIt = databaseNodeList.iterator();
+        Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
         while(databaseNodeIt.hasNext()){
-            dbNumber++;
+            DatabaseNodeListInfo.dbNumber++;
             DatabaseNode databaseNode = databaseNodeIt.next();
                 /*获取数据库连接*/
             con = DriverManager.getConnection(URL+databaseNode.getDbName(),properties);
             Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
             while(tableNodeIterator.hasNext()){
-                tbNumber++;
+                DatabaseNodeListInfo.tbNumber++;
                 TableNode tableNode = tableNodeIterator.next();
                     /*sql查询该表所有数据*/
                 st=con.createStatement();
                 rs = st.executeQuery(sql+tableNode.getTableName());
                 while(rs.next()){
-                    rowNumber++;
+                    DatabaseNodeListInfo.rowNumber++;
                     ResultSetMetaData md = rs.getMetaData();
                     int columnCount = md.getColumnCount();
                     ArrayList<String> row = new ArrayList<String>();
@@ -403,8 +404,11 @@ public class Mysql2es {
 
             InputStream inputStream = httpURLConnection.getInputStream();
 //            System.out.println(inputStream);
-
             httpURLConnection.disconnect();
+
+//            new MyURLConnection().request("ESUrl+_all","DELETE","");
+
+
         } catch (MalformedURLException e) {
             logger.error("error",e);
         } catch (IOException e) {

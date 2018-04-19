@@ -1,8 +1,15 @@
 package com.justplay1994.github.mysql2es.es;
 
 import com.justplay1994.github.mysql2es.http.client.urlConnection.MyURLConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+
 
 public class ESOperate {
+    private final static Logger logger = LoggerFactory.getLogger(ESOperate.class);
+
     public static void main(String[] args){
         ESOperate esOperate = new ESOperate();
         System.out.println(esOperate.query_all());
@@ -21,7 +28,12 @@ public class ESOperate {
                 "\t\t\"match_all\":{}\n" +
                 "\t}\n" +
                 "}";
-        return MyURLConnection.request("http://192.168.16.54:9200/_search","POST",body);
+        try {
+            return new MyURLConnection().request("http://192.168.16.54:9200/_search","POST",body);
+        } catch (IOException e) {
+            logger.error("[query_all error]",e);
+        }
+        return null;
     }
 
     /**
@@ -52,7 +64,12 @@ public class ESOperate {
                 "        }\n" +
                 "    }\n" +
                 "}";
-        return MyURLConnection.request("http://192.168.16.54:9200/_search","POST",body);
+        try {
+            return new MyURLConnection().request("http://192.168.16.54:9200/_search","POST",body);
+        } catch (IOException e) {
+            logger.error("[query_geo error]",e);
+        }
+        return null;
     }
 
     /**
@@ -72,7 +89,12 @@ public class ESOperate {
                 "        }\n" +
                 "    }\n" +
                 "}";
-        return MyURLConnection.request("http://192.168.16.54:9200/_search","POST",body);
+        try {
+            return new MyURLConnection().request("http://192.168.16.54:9200/_search","POST",body);
+        } catch (IOException e) {
+            logger.error("[query_properties_exact error]",e);
+        }
+        return null;
     }
 
     /**
@@ -92,7 +114,12 @@ public class ESOperate {
                 "        }\n" +
                 "    }\n" +
                 "}";
-        return MyURLConnection.request("http://192.168.16.54:9200/_search","POST",body);
+        try {
+            return new MyURLConnection().request("http://192.168.16.54:9200/_search","POST",body);
+        } catch (IOException e) {
+            logger.error("[query_properties_fuzzy error]",e);
+        }
+        return null;
     }
 
     /**
@@ -109,7 +136,12 @@ public class ESOperate {
                 "\t\t\"match_all\":{}\n" +
                 "\t}\n" +
                 "}";
-        return MyURLConnection.request("http://192.168.16.54:9200/_search?size=1&from=1","POST",body);
+        try {
+            return new MyURLConnection().request("http://192.168.16.54:9200/_search?size=1&from=1","POST",body);
+        } catch (IOException e) {
+            logger.error("[query_page error]",e);
+        }
+        return null;
     }
 
 

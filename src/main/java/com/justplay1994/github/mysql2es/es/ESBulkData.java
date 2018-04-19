@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justplay1994.github.mysql2es.Mysql2es;
 import com.justplay1994.github.mysql2es.database.DatabaseNode;
+import com.justplay1994.github.mysql2es.database.DatabaseNodeListInfo;
 import com.justplay1994.github.mysql2es.database.TableNode;
+import com.justplay1994.github.mysql2es.http.client.urlConnection.MyURLConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,7 +128,7 @@ public class ESBulkData{
 
                         last = now;
                         //以前多线程方式：增加线程处理
-                        new Thread(new ESBulkDataThread(ESUrl, json.substring(index).toString(), blockRowNumber)).start();
+                        new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)).start();
                         //新的方式：以线程池方式启动
 //                        executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.substring(index), blockRowNumber)));
 
@@ -174,9 +176,9 @@ public class ESBulkData{
 //        executor.shutdown();
         logger.info("All finished!");
         logger.info("========================");
-        logger.info("dbNumber: "+Mysql2es.dbNumber);
-        logger.info("tbNumber: "+Mysql2es.tbNumber);
-        logger.info("rowNumber: "+Mysql2es.rowNumber);
+        logger.info("dbNumber: "+ DatabaseNodeListInfo.dbNumber);
+        logger.info("tbNumber: "+DatabaseNodeListInfo.tbNumber);
+        logger.info("rowNumber: "+DatabaseNodeListInfo.rowNumber);
         logger.info("total bulk body size(MB): "+json.length()/1024/1024);
         logger.info("========================");
 
@@ -189,46 +191,7 @@ public class ESBulkData{
         /*创建索引映射*/
 
         try {
-            URL url;
-
-            url = new URL(ESUrl + indexName);
-            logger.debug(url.toString());
-            logger.debug(mapping);
-
-
-            URLConnection urlConnection = url.openConnection();
-            HttpURLConnection httpURLConnection = (HttpURLConnection) urlConnection;
-
-            /*输入默认为false，post需要打开*/
-            httpURLConnection.setDoInput(true);
-            httpURLConnection.setDoOutput(true);
-            httpURLConnection.setRequestProperty("Content-Type", "application/json");
-
-            httpURLConnection.setRequestMethod("PUT");
-
-
-//            httpURLConnection.setConnectTimeout(3000);
-
-
-            httpURLConnection.connect();
-
-
-            OutputStream outputStream = httpURLConnection.getOutputStream();
-
-            outputStream.write(mapping.getBytes());
-
-
-            InputStream inputStream = httpURLConnection.getInputStream();
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "utf-8"));
-            StringBuilder builder = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                builder.append(line).append("\n");
-            }
-            logger.debug(builder.toString());
-
-            httpURLConnection.disconnect();
+            new MyURLConnection().request(ESUrl + indexName,"PUT",mapping);
             logger.info("mapping finished!");
         } catch (MalformedURLException e) {
             logger.error("【MappingError】", e);

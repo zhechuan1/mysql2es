@@ -8,24 +8,31 @@ import java.net.*;
 
 public class MyURLConnection {
     private static final Logger logger = LoggerFactory.getLogger(MyURLConnection.class);
+    String url;
+    String type;
+    String body;
+    String result;
+
     public MyURLConnection(){
 
     }
 
     /**
      * 单线程 http客户端
-     * @param _url
+     * @param url
      * @param type
      * @param body
      * @return
      */
-    public static String request(String _url, String type, String body){
-        try {
-
-            URL url = new URL(_url);
+    public String request(String url, String type, String body) throws IOException {
 
 
-            URLConnection urlConnection = url.openConnection();
+//            URL url = new URL(url);
+            this.url = url;
+            this.type = type;
+            this.body = body;
+
+            URLConnection urlConnection = new URL(url).openConnection();
             HttpURLConnection httpURLConnection = (HttpURLConnection) urlConnection;
 
             /*输入默认为false，post需要打开*/
@@ -55,19 +62,11 @@ public class MyURLConnection {
             while ((line = reader.readLine()) != null) {
                 builder.append(line).append("\n");
             }
-            logger.debug(builder.toString());
+            result = builder.toString();
+            logger.debug(result);
 
             httpURLConnection.disconnect();/*关闭连接*/
-            return builder.toString();
-        } catch (MalformedURLException e) {
-            logger.error("【BulkDataError】", e);
-        } catch (ProtocolException e) {
-            logger.error("【BulkDataError】", e);
-        } catch (IOException e) {
-            logger.error("【BulkDataError】", e);
-        }finally {
+            return result;
 
-        }
-        return null;
     }
 }

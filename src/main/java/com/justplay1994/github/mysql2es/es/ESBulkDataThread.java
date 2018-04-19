@@ -1,13 +1,14 @@
 package com.justplay1994.github.mysql2es.es;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.justplay1994.github.mysql2es.Mysql2es;
+import com.justplay1994.github.mysql2es.database.DatabaseNodeListInfo;
 import com.justplay1994.github.mysql2es.http.client.urlConnection.MyURLConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.net.*;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
 import java.text.DecimalFormat;
 import java.util.Map;
 
@@ -23,6 +24,7 @@ public class ESBulkDataThread implements Runnable {
     String ESUrl;
 
     static int nowRowNumber = 0; /*已导入数据量*/
+    static int nowFailedRowNumber = 0; /*已导入失败的数据量*/
     private int blockRowNumber = 0;/*当前数据块大小*/
 
     /**
@@ -46,7 +48,7 @@ public class ESBulkDataThread implements Runnable {
 
             url = ESUrl + "_bulk";
             type = "POST";/*必须大写*/
-            result = MyURLConnection.request(url,type,json);
+            result = new MyURLConnection().request(url,type,json);
 
             logger.debug(getRequestFullData());
 
@@ -56,15 +58,22 @@ public class ESBulkDataThread implements Runnable {
             if("ture".equals(map.get("errors"))){
                 logger.error("insert error:");
                 logger.error(getRequestFullData());
+                nowFailedRowNumber+=blockRowNumber;
+            }else {
+                nowRowNumber+=blockRowNumber;
             }
 
+
         } catch (MalformedURLException e) {
+            nowFailedRowNumber+=blockRowNumber;
             logger.error("【BulkDataError1】", e);
             logger.error(getRequestFullData());
         } catch (ProtocolException e) {
+            nowFailedRowNumber+=blockRowNumber;
             logger.error("【BulkDataError2】", e);
             logger.error(getRequestFullData());
         } catch (IOException e) {
+            nowFailedRowNumber+=blockRowNumber;
             logger.error("【BulkDataError3】", e);
             logger.error(getRequestFullData());
         }finally {
@@ -88,9 +97,10 @@ public class ESBulkDataThread implements Runnable {
 
     /*打印进度条*/
     synchronized public void changeNowRowNumber(){
-        nowRowNumber+=blockRowNumber;
+
         DecimalFormat df = new DecimalFormat("0.00");
-        logger.info("has finished: "+ df.format(((float)nowRowNumber/ Mysql2es.rowNumber)*100)+"%");
+        logger.info("has finished: "+ df.format(((float)nowRowNumber/ DatabaseNodeListInfo.rowNumber)*100)+"%");
+        logger.info("has error: "+ df.format(((float)nowFailedRowNumber/ DatabaseNodeListInfo.rowNumber)*100)+"%");
     }
 
     /*获取完整请求信息*/
