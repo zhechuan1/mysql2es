@@ -6,6 +6,7 @@ import com.justplay1994.github.mysql2es.database.DatabaseNode;
 import com.justplay1994.github.mysql2es.database.DatabaseNodeListInfo;
 import com.justplay1994.github.mysql2es.database.TableNode;
 import com.justplay1994.github.mysql2es.es.ESBulkData;
+import com.justplay1994.github.mysql2es.http.client.urlConnection.MyURLConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,11 +115,6 @@ public class Mysql2es {
 
 
     public void doPerHour(){
-        logger.info("delete es all data...");
-        esDeleteAll();
-        logger.info("delete finished!");
-
-
 
         /*注册驱动，那么在多线程，多种驱动的情况下，会发生什么？
         * 按照博客http://hllvm.group.iteye.com/group/topic/39251
@@ -140,6 +136,9 @@ public class Mysql2es {
 
             /*获取所有数据*/
             getAllData();
+
+            /*删除与导入数据索引名相同的索引*/
+            esDeleteAll();
 
             /*打印获取的数据总量情况*/
             logger.info("data is all in memory!");
@@ -293,7 +292,11 @@ public class Mysql2es {
                 st=con.createStatement();
                 rs = st.executeQuery(sql+tableNode.getTableName());
                 while(rs.next()){
+                    /*所有数据+1*/
                     DatabaseNodeListInfo.rowNumber++;
+                    /*该库数据+1*/
+                    databaseNode.setRowNumber(databaseNode.getRowNumber()+1);
+
                     ResultSetMetaData md = rs.getMetaData();
                     int columnCount = md.getColumnCount();
                     ArrayList<String> row = new ArrayList<String>();
@@ -386,34 +389,34 @@ public class Mysql2es {
     }
 
     public void esDeleteAll(){
-        logger.info("esMapping ...");
+        logger.info("delete already exist and conflict index ...");
         try {
 
-            URL url = new URL(ESUrl+"_all");
-            URLConnection urlConnection = url.openConnection();
-            HttpURLConnection httpURLConnection = (HttpURLConnection)urlConnection;
+            String url = "";
 
-            /*输入默认为false，post需要打开*/
-            httpURLConnection.setDoInput(true);
-            httpURLConnection.setDoOutput(true);
-            httpURLConnection.setRequestProperty("Content-Type","application/json");
-            httpURLConnection.setRequestMethod("DELETE");
-            httpURLConnection.setConnectTimeout(3000);
+            Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
+            while(databaseNodeIt.hasNext()) {
+                DatabaseNode databaseNode = databaseNodeIt.next();
+                Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
+                while (tableNodeIterator.hasNext()) {
+                    TableNode tableNode = tableNodeIterator.next();
 
-            httpURLConnection.connect();
+                    url+=Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName())+",";
+                }
+            }
+            url = url.substring(0,url.length()-1);
 
-            InputStream inputStream = httpURLConnection.getInputStream();
-//            System.out.println(inputStream);
-            httpURLConnection.disconnect();
+            new MyURLConnection().request(ESUrl+url,"DELETE","");
 
 //            new MyURLConnection().request("ESUrl+_all","DELETE","");
 
 
         } catch (MalformedURLException e) {
-            logger.error("error",e);
+            logger.error("delete index error",e);
         } catch (IOException e) {
-            logger.error("error",e);
+            logger.error("delete index error",e);
         }
+        logger.info("delete finished!");
     }
 
 }

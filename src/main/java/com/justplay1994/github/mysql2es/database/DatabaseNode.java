@@ -10,6 +10,7 @@ import java.util.List;
 public class DatabaseNode {
     String dbName;
     List<TableNode> tableNodeList;
+    long rowNumber;
 
     public DatabaseNode(){
 
@@ -36,4 +37,11 @@ public class DatabaseNode {
         this.tableNodeList = tableNodeList;
     }
 
+    public long getRowNumber() {
+        return rowNumber;
+    }
+
+    public void setRowNumber(long rowNumber) {
+        this.rowNumber = rowNumber;
+    }
 }
