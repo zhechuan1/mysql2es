@@ -93,7 +93,14 @@ public class Mysql2es {
         this.URL = (String) properties.get("URL");
         this.USER = (String) properties.get("USER");
         this.PASSWORD = (String) properties.get("PASSWORD");
-        skipDB = properties.get("skipDB")!=null ? ((String)properties.get("skipDB")).replace(" ","").split(","):skipDB;
+        int num  = skipDB.length;
+//        skipDB = properties.get("skipDB")!=null ? ((String)properties.get("skipDB")).replace(" ","").split(","):skipDB;
+        String[] mySkipDB = ((String)properties.get("skipDB")).replace(" ","").split(",");
+        String[] _skipDB = new String[skipDB.length+mySkipDB.length];/*扩容*/
+        System.arraycopy(skipDB,0,_skipDB,0,skipDB.length);
+        System.arraycopy(mySkipDB,0,_skipDB,skipDB.length,mySkipDB.length);
+        skipDB=_skipDB;
+
         skipTB = properties.get("skipTB")!=null ? ((String)properties.get("skipTB")).replace(" ","").split(","):null;
         justReadDB = properties.get("justReadDB")!=null ? ((String)properties.get("justReadDB")).replace(" ","").split(","):null;
         justReadTB = properties.get("justReadTB")!=null ? ((String)properties.get("justReadTB")).replace(" ","").split(","):null;
@@ -113,6 +120,9 @@ public class Mysql2es {
         properties.setProperty("zeroDateTimeBehavior","convertToNull");
     }
 
+    /**
+     * 首次导入数据
+     */
     public static void doInput(){
         /*注册驱动，那么在多线程，多种驱动的情况下，会发生什么？
         * 按照博客http://hllvm.group.iteye.com/group/topic/39251
@@ -154,8 +164,14 @@ public class Mysql2es {
         }
     }
 
+    /**
+     * 再次导入数据
+     */
     public static void reTryInput(){
         /*开始导入数据至es中*/
+        if(DatabaseNodeListInfo.databaseNodeList==null || DatabaseNodeListInfo.databaseNodeList.size()<=0){
+            return;
+        }
         new ESBulkData(ESUrl, DatabaseNodeListInfo.databaseNodeList).inputData();
     }
 
@@ -278,6 +294,9 @@ public class Mysql2es {
         Statement st = null;
 
         String sql = "select * from ";
+        if(DatabaseNodeListInfo.databaseNodeList==null || DatabaseNodeListInfo.databaseNodeList.size()<=0){
+            return;
+        }
 
         Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
         while(databaseNodeIt.hasNext()){
@@ -394,7 +413,9 @@ public class Mysql2es {
         try {
 
             String url = "";
-
+            if(DatabaseNodeListInfo.databaseNodeList==null || DatabaseNodeListInfo.databaseNodeList.size()<=0){
+                return;
+            }
             Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
             while(databaseNodeIt.hasNext()) {
                 DatabaseNode databaseNode = databaseNodeIt.next();
@@ -402,12 +423,17 @@ public class Mysql2es {
                 while (tableNodeIterator.hasNext()) {
                     TableNode tableNode = tableNodeIterator.next();
 
-                    url+=Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName())+",";
+                    /*批量删除*/
+//                    url+=Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName())+",";
+                    /*TODO 逐个删除*/
+                    url= Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
+                    new MyURLConnection().request(ESUrl+url,"DELETE","");
+                    logger.info("delete success: "+url);
                 }
             }
-            url = url.substring(0,url.length()-1);
 
-            new MyURLConnection().request(ESUrl+url,"DELETE","");
+//            url = url.substring(0,url.length()-1);
+//            new MyURLConnection().request(ESUrl+url,"DELETE","");
 
 //            new MyURLConnection().request("ESUrl+_all","DELETE","");
 

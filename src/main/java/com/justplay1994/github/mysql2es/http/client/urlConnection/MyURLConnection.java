@@ -43,6 +43,7 @@ public class MyURLConnection {
             httpURLConnection.setRequestMethod(type);
 
 
+            /*超时*/
 //            httpURLConnection.setConnectTimeout(3000);
 
 
