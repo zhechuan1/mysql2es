@@ -11,15 +11,24 @@ public class TableNode {
     String tableName;
     ArrayList<String> columns;
     ArrayList<ArrayList<String>> rows;
+    public ArrayList<String> dataType;/*字段类型*/
 
     public TableNode(){
 
     }
 
-    public TableNode(String tableName,ArrayList<String> columns, ArrayList<ArrayList<String>> rows){
+    public TableNode(String tableName){
+        this.tableName = tableName;
+        this.columns = new ArrayList<String>();
+        this.rows = new ArrayList<ArrayList<String>>();
+        this.dataType = new ArrayList<String>();
+    }
+
+    public TableNode(String tableName,ArrayList<String> columns, ArrayList<ArrayList<String>> rows, ArrayList<String> dataType){
         this.tableName = tableName;
         this.columns = columns;
         this.rows = rows;
+        this.dataType = dataType;
     }
 
     public String getTableName() {

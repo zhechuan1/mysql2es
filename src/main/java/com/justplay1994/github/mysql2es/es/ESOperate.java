@@ -12,11 +12,11 @@ public class ESOperate {
 
     public static void main(String[] args){
         ESOperate esOperate = new ESOperate();
-        System.out.println(esOperate.query_all());
-        System.out.println(esOperate.query_geo());
-        System.out.println(esOperate.query_properties_exact());
-        System.out.println(esOperate.query_properties_fuzzy());
-        System.out.println(esOperate.query_page());
+        System.out.println("查询全部"+esOperate.query_all());
+        System.out.println("多边形查询"+esOperate.query_geo());
+        System.out.println("精确查询"+esOperate.query_properties_exact());
+        System.out.println("模糊查询"+esOperate.query_properties_fuzzy());
+        System.out.println("分页查询"+esOperate.query_page());
     }
 
     /**
@@ -54,8 +54,7 @@ public class ESOperate {
                 "                            [114,22],\n" +
                 "            [115,22],\n" +
                 "            [115,23],\n" +
-                "            [114,23.1],\n" +
-                "            [115,21],\n" +
+                "            [114,23],\n" +
                 "            [114,22]\n" +
                 "                        ]\n" +
                 "                    }\n" +

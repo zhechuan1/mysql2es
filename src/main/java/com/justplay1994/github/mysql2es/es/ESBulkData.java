@@ -73,17 +73,53 @@ public class ESBulkData{
 
                     TableNode tableNode = tableNodeIterator.next();
                     //每张表先创建mapping关系，创建location为地理信息点类型
-                    String mapping =
-                            "        {\n" +
-                                    "            \"mappings\": {\n" +
-                                    "                \"_doc\": {\n" +
-                                    "                    \"properties\": {\n" +
-                                    "                        \"location\": { \"type\": \"geo_point\"  }\n" +
-                                    "                    }\n" +
-                                    "                }\n" +
-                                    "            }\n" +
-                                    "        }";
-                    createMapping(Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()), mapping);
+                    /*TODO 遍历字段名，给每一个字段增加分词器
+                    * 每个属性增加：
+                    * {"type":"text",
+                	    "analyzer": "ik_max_word",
+                	    "search_analyzer": "ik_max_word"}
+                    * */
+                    HashMap properties = new HashMap();
+                    /*地理信息字段*/
+                    HashMap geo = new HashMap();
+                    geo.put("type","geo_point");
+                    properties.put("location",geo);
+                    /*分词字段*/
+                    HashMap textAnalyzer = new HashMap();
+                    textAnalyzer.put("type","text");
+                    textAnalyzer.put("analyzer","ik_max_word");
+                    textAnalyzer.put("search_analyzer","ik_max_word");
+                    for(int i = 0; i < tableNode.getColumns().size(); ++i){
+                        if(tableNode.dataType.get(i).equals("varchar")) {
+                            properties.put(tableNode.getColumns().get(i), textAnalyzer);
+                        }
+                    }
+                    try {
+                        String mapping =
+                                " {\n" +
+                                        "\t\"settings\":{\n" +
+                                        "\t\t\"analysis\":{\n" +
+                                        "\t\t\t\"analyzer\":{\n" +
+                                        "\t\t\t\t\"ik\":{\n" +
+                                        "\t\t\t\t\t\"tokenizer\":\"ik_smart\"\n" +
+                                        "\t\t\t\t}\n" +
+                                        "\t\t\t}\n" +
+                                        "\t\t}\n" +
+                                        "\t},\n" +
+                                        "    \"mappings\": {\n" +
+                                        "        \"_doc\": {\n" +
+                                        "            \"properties\": \n" +
+                                        objectMapper.writeValueAsString(properties) +
+                                        "            \n" +
+                                        "        }\n" +
+                                        "    }\n" +
+                                        "}";
+                        createMapping(Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()), mapping);
+                    } catch (JsonProcessingException e) {
+                        e.printStackTrace();
+                    }
+
+
                 }
             }
         }

@@ -95,11 +95,13 @@ public class Mysql2es {
         this.PASSWORD = (String) properties.get("PASSWORD");
         int num  = skipDB.length;
 //        skipDB = properties.get("skipDB")!=null ? ((String)properties.get("skipDB")).replace(" ","").split(","):skipDB;
-        String[] mySkipDB = ((String)properties.get("skipDB")).replace(" ","").split(",");
-        String[] _skipDB = new String[skipDB.length+mySkipDB.length];/*扩容*/
-        System.arraycopy(skipDB,0,_skipDB,0,skipDB.length);
-        System.arraycopy(mySkipDB,0,_skipDB,skipDB.length,mySkipDB.length);
-        skipDB=_skipDB;
+        if((String)properties.get("skipDB")!=null) {
+            String[] mySkipDB = ((String) properties.get("skipDB")).replace(" ", "").split(",");
+            String[] _skipDB = new String[skipDB.length + mySkipDB.length];/*扩容*/
+            System.arraycopy(skipDB, 0, _skipDB, 0, skipDB.length);
+            System.arraycopy(mySkipDB, 0, _skipDB, skipDB.length, mySkipDB.length);
+            skipDB = _skipDB;
+        }
 
         skipTB = properties.get("skipTB")!=null ? ((String)properties.get("skipTB")).replace(" ","").split(","):null;
         justReadDB = properties.get("justReadDB")!=null ? ((String)properties.get("justReadDB")).replace(" ","").split(","):null;
@@ -208,6 +210,7 @@ public class Mysql2es {
             String colStr = rs.getString("COLUMN_NAME");
             String tbStr = rs.getString("TABLE_NAME");
             String dbStr = rs.getString("TABLE_SCHEMA");
+            String dataType = rs.getString("DATA_TYPE");
 
             boolean skip = false;
             /*判断该库是否是必须读取*/
@@ -263,16 +266,19 @@ public class Mysql2es {
                 }
             }
             if(lastTable==null){
-                lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
+                lastTable = new TableNode(tbStr);
                 lastTable.getColumns().add(colStr);
+                lastTable.dataType.add(dataType);
                 lastDB.getTableNodeList().add(lastTable);
             }else{
                 if(!tbStr.equals(lastTable.getTableName())){
-                    lastTable = new TableNode(tbStr, new ArrayList<String>(), new ArrayList<ArrayList<String>>());
+                    lastTable = new TableNode(tbStr);
                     lastTable.getColumns().add(colStr);
+                    lastTable.dataType.add(dataType);
                     lastDB.getTableNodeList().add(lastTable);
                 }else{
                     lastTable.getColumns().add(colStr);
+                    lastTable.dataType.add(dataType);
                 }
             }
         }
@@ -410,7 +416,7 @@ public class Mysql2es {
 
     public static void esDeleteAll(){
         logger.info("delete already exist and conflict index ...");
-        try {
+
 
             String url = "";
             if(DatabaseNodeListInfo.databaseNodeList==null || DatabaseNodeListInfo.databaseNodeList.size()<=0){
@@ -427,7 +433,13 @@ public class Mysql2es {
 //                    url+=Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName())+",";
                     /*TODO 逐个删除*/
                     url= Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
-                    new MyURLConnection().request(ESUrl+url,"DELETE","");
+                    try {
+                        new MyURLConnection().request(ESUrl+url,"DELETE","");
+                    } catch (MalformedURLException e) {
+                        logger.error("delete index error",e);
+                    } catch (IOException e) {
+                        logger.error("delete index error",e);
+                    }
                     logger.info("delete success: "+url);
                 }
             }
@@ -438,11 +450,7 @@ public class Mysql2es {
 //            new MyURLConnection().request("ESUrl+_all","DELETE","");
 
 
-        } catch (MalformedURLException e) {
-            logger.error("delete index error",e);
-        } catch (IOException e) {
-            logger.error("delete index error",e);
-        }
+
         logger.info("delete finished!");
     }
 
