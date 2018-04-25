@@ -15,6 +15,7 @@ public class ESOperate {
         System.out.println("查询全部"+esOperate.query_all());
         System.out.println("多边形查询"+esOperate.query_geo());
         System.out.println("精确查询"+esOperate.query_properties_exact());
+        System.out.println("查询全字段"+esOperate.query_all_properties_fuzzy());
         System.out.println("模糊查询"+esOperate.query_properties_fuzzy());
         System.out.println("分页查询"+esOperate.query_page());
     }
@@ -112,6 +113,36 @@ public class ESOperate {
                 "        \t}\n" +
                 "        }\n" +
                 "    }\n" +
+                "}";
+        try {
+            return new MyURLConnection().request("http://192.168.16.54:9200/_search","POST",body);
+        } catch (IOException e) {
+            logger.error("[query_properties_fuzzy error]",e);
+        }
+        return null;
+    }
+
+    /**
+     * 查询全字段，most_fields以字段为中心，
+     */
+    public String query_all_properties_fuzzy(){
+        String body = "{\n" +
+                "\t\"query\":{\n" +
+                "\t\t\"bool\":{\n" +
+                "\t\t\t\"filter\":{\n" +
+                "\t\t\t\t\"multi_match\": {\n" +
+                "\t\t\t        \"query\":       \"福田\",\n" +
+                "\t\t\t        \"type\":        \"most_fields\",\n" +
+                "\t\t\t        \"fields\":      [ \"*\" ]\n" +
+                "\t\t\t\t}\n" +
+                "\t\t\t}\n" +
+                "\t\t}\n" +
+                "\t},\n" +
+                "\t\"highlight\": {\n" +
+                "\t    \"fields\":{\n" +
+                "\t    \t\"name\":{}\n" +
+                "\t    }\n" +
+                "\t}\n" +
                 "}";
         try {
             return new MyURLConnection().request("http://192.168.16.54:9200/_search","POST",body);
