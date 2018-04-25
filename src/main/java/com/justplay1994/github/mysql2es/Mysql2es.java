@@ -10,9 +10,7 @@ import com.justplay1994.github.mysql2es.http.client.urlConnection.MyURLConnectio
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -40,7 +38,7 @@ public class Mysql2es {
     static String driver = "com.mysql.jdbc.Driver";
     static String URL = "jdbc:mysql://localhost:3306/";
     static String USER = "root";
-    static String PASSWORD = "123456";
+    static String PASSWORD = "1";
 
 //    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
 //    public static int dbNumber=0;/*数据库总数量*/
@@ -57,6 +55,7 @@ public class Mysql2es {
     public static String[] justReadTB;
     /*数据量校验失败的表，最大重试次数*/
     public static int retryNumber;
+    public static String propertiesPath;
 
     static Properties properties = new Properties();/*Mysql相关属性*/
 
@@ -73,13 +72,26 @@ public class Mysql2es {
 
     public static void main(String[] args){
         logger.info("start copy data from mysql to es ...");
-        Mysql2es mysql2es = new Mysql2es();
+        Mysql2es mysql2es = new Mysql2es(args);
         mysql2es.doInput();
     }
-    public Mysql2es(){
-        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
+    public Mysql2es(String[] _propertiesPath){
+//        try {
+//            this.propertiesPath = _propertiesPath[0];
+//        }catch (Exception e){
+//            this.propertiesPath = "/mysql2es.properties";
+//        }
+//        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
+        System.out.println(System.getProperty("java.class.path"));//系统的classpath路径
+        System.out.println(System.getProperty("user.dir"));//用户的当前路径
+        String path = System.getProperty("user.dir")+"/mysql2es.properties";
+        System.out.println(path);
+//        InputStream inputStream =this.getClass().getResourceAsStream(path);
+//        File f = new File("E:"+File.separator+"java2"+File.separator+"StreamDemo"+File.separator+"test.txt");
+        File f = new File(path);
 
         try {
+            InputStream inputStream = new FileInputStream(f);
             properties.load(inputStream);
         } catch (IOException e) {
             logger.error("读取配置文件失败",e);
@@ -435,12 +447,12 @@ public class Mysql2es {
                     url= Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
                     try {
                         new MyURLConnection().request(ESUrl+url,"DELETE","");
+                        logger.info("delete success: "+url);
                     } catch (MalformedURLException e) {
                         logger.error("delete index error",e);
                     } catch (IOException e) {
                         logger.error("delete index error",e);
                     }
-                    logger.info("delete success: "+url);
                 }
             }
 
