@@ -12,7 +12,7 @@
         <!--</filter>-->
     </appender>
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">　　　　
-        <file>mysql2es.log</file>
+        <file>log/mysql2es.log</file>
         <append>true</append>
         <!--按时间和大小滚动日志-->
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -35,7 +35,7 @@
         <!--</filter>-->
     </appender>
     <appender name="FILEERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">　　　　
-        <file>error.log</file>
+        <file>error/error.log</file>
         <append>true</append>
         <!--按时间和大小滚动日志-->
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">

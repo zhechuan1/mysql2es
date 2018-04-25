@@ -84,7 +84,8 @@ public class Mysql2es {
 //        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
         System.out.println(System.getProperty("java.class.path"));//系统的classpath路径
         System.out.println(System.getProperty("user.dir"));//用户的当前路径
-        String path = System.getProperty("user.dir")+"/mysql2es.properties";
+//        String path = System.getProperty("user.dir")+"/mysql2es.properties";
+        String path = "mysql2es.properties";
         System.out.println(path);
 //        InputStream inputStream =this.getClass().getResourceAsStream(path);
 //        File f = new File("E:"+File.separator+"java2"+File.separator+"StreamDemo"+File.separator+"test.txt");
