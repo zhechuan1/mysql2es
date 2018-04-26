@@ -177,10 +177,12 @@ public class ESBulkData{
                     }
                     /*根据已找到的经纬度字段，进行格式转换*/
                     if(lat!=-1 && lon!=-1){
-                        HashMap location = new HashMap();
-                        location.put("lat",row.get(lat));
-                        location.put("lon",row.get(lon));
-                        map.put("location",location);
+                        if(row.get(lat)!=null && row.get(lon)!=null) {
+                            HashMap location = new HashMap();
+                            location.put("lat", row.get(lat));
+                            location.put("lon", row.get(lon));
+                            map.put("location", location);
+                        }
                     }
                     /*请求head*/
                     if(id!=-1) {
@@ -248,7 +250,7 @@ public class ESBulkData{
             long esNumber = Integer.parseInt(((LinkedHashMap) map.get("hits")).get("total").toString());
             logger.info("es total row number: "+esNumber);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Search total error",e);
         }
 
         logger.info("========================");
