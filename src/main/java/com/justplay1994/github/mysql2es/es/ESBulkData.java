@@ -186,7 +186,7 @@ public class ESBulkData{
                     }
                     /*请求head*/
                     if(id!=-1) {
-                        json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \"_doc\", \"_id\": "+row.get(id)+"}}\n");
+                        json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \"_doc\", \"_id\": \""+row.get(id)+"\"}}\n");
                     }else{
                         json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \"_doc\"}}\n");
                     }
