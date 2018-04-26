@@ -292,13 +292,13 @@ public class ESBulkData{
             logger.info("mapping finished! indexName: "+ indexName);
         } catch (MalformedURLException e) {
             logger.error("【MappingError】", e);
-            logger.error("url: "+ESUrl+indexName+", "+ mapping);
+            logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
         } catch (ProtocolException e) {
             logger.error("【MappingError】", e);
-            logger.error("url: "+ESUrl+indexName+", "+ mapping);
+            logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
         } catch (IOException e) {
             logger.error("【MappingError】", e);
-            logger.error("url: "+ESUrl+indexName+", "+ mapping);
+            logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
         }
     }
 
