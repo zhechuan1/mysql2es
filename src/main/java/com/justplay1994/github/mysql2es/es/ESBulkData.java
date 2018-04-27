@@ -153,9 +153,9 @@ public class ESBulkData{
                 /*遍历列名，找到经纬度字段对应下标*/
                 for(int i = 0; i < tableNode.getColumns().size(); ++i){
 
-                    if(Mysql2es.latStr.equals(tableNode.getColumns().get(i))){
+                    if(Mysql2es.latStr.equalsIgnoreCase(tableNode.getColumns().get(i))){
                         lat=i;
-                    }else if ((Mysql2es.lonStr.equals(tableNode.getColumns().get(i)))){
+                    }else if ((Mysql2es.lonStr.equalsIgnoreCase(tableNode.getColumns().get(i)))){
                         lon=i;
                     }else if("id".equalsIgnoreCase(tableNode.getColumns().get(i))) {
                         id=i;
