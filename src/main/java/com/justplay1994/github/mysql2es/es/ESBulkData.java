@@ -97,15 +97,15 @@ public class ESBulkData{
                     try {
                         String mapping =
                                 " {\n" +
-                                        "\t\"settings\":{\n" +
-                                        "\t\t\"analysis\":{\n" +
-                                        "\t\t\t\"analyzer\":{\n" +
-                                        "\t\t\t\t\"ik\":{\n" +
-                                        "\t\t\t\t\t\"tokenizer\":\"ik_smart\"\n" +
-                                        "\t\t\t\t}\n" +
-                                        "\t\t\t}\n" +
-                                        "\t\t}\n" +
-                                        "\t},\n" +
+//                                        "\t\"settings\":{\n" +
+//                                        "\t\t\"analysis\":{\n" +
+//                                        "\t\t\t\"analyzer\":{\n" +
+//                                        "\t\t\t\t\"ik\":{\n" +
+//                                        "\t\t\t\t\t\"tokenizer\":\"ik_smart\"\n" +
+//                                        "\t\t\t\t}\n" +
+//                                        "\t\t\t}\n" +
+//                                        "\t\t}\n" +
+//                                        "\t},\n" +
                                         "    \"mappings\": {\n" +
                                         "        \"_doc\": {\n" +
                                         "            \"properties\": \n" +
@@ -172,8 +172,9 @@ public class ESBulkData{
                     Map map = new HashMap();/*数据*/
                     ArrayList<String> row = iterator.next();
                     for(int i = 0; i < row.size(); ++i){
-                        map.put(tableNode.getColumns().get(i),row.get(i));
-
+                        /*去除空数据*/
+                        if(row.get(i)!=null && !row.get(i).equals(""))
+                            map.put(tableNode.getColumns().get(i),row.get(i));
                     }
                     /*根据已找到的经纬度字段，进行格式转换*/
                     if(lat!=-1 && lon!=-1){
@@ -245,12 +246,15 @@ public class ESBulkData{
         logger.info("rowNumber: "+DatabaseNodeListInfo.rowNumber);
         logger.info("total bulk body size(MB): "+jsonSize/1024/1024);
         try {
+            Thread.sleep(1000);
             String str = new MyURLConnection().request(ESUrl + "/_search", "POST", "");
             Map map = objectMapper.readValue(str, Map.class);
             long esNumber = Integer.parseInt(((LinkedHashMap) map.get("hits")).get("total").toString());
             logger.info("es total row number: "+esNumber);
         } catch (IOException e) {
             logger.error("Search total error",e);
+        } catch (InterruptedException e) {
+            logger.error("sleep error");
         }
 
         logger.info("========================");
