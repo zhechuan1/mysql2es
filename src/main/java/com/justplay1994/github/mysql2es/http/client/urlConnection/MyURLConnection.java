@@ -26,7 +26,7 @@ public class MyURLConnection {
      */
     public String request(String url, String type, String body) throws IOException {
 
-
+        logger.debug("[url:"+url+" type:"+type+" body:"+body+"]");
 //            URL url = new URL(url);
             this.url = url;
             this.type = type;

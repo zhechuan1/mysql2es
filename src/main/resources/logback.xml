@@ -17,7 +17,7 @@
         <!--按时间和大小滚动日志-->
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
 
-            <FileNamePattern>mysql2es.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
+            <FileNamePattern>log/mysql2es.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
 
             <MaxHistory>10</MaxHistory>
 
@@ -40,7 +40,7 @@
         <!--按时间和大小滚动日志-->
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
 
-            <FileNamePattern>mysql2es.error.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
+            <FileNamePattern>log/mysql2es.error.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
 
             <MaxHistory>10</MaxHistory>
 
@@ -57,8 +57,8 @@
             <onMismatch>DENY</onMismatch>
         </filter>
     </appender>
-    <!--<root level="DEBUG">-->
-    <root level="INFO">　　
+    <root level="DEBUG">
+    <!--<root level="INFO">　　-->
     <!--<root level="ERROR">-->
         <appender-ref ref="FILE"/>
         <appender-ref ref="STDOUT"/>

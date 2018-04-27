@@ -240,7 +240,8 @@ public class Mysql2es {
             if(justReadTB!=null){
                 skip = true;
                 for(int i = 0; i < justReadTB.length; ++i){
-                    if(tbStr.equals(justReadTB[i].split("\\.")[0]) && tbStr.equals(justReadTB[i].split("\\.")[1])){
+                    /*dbName.tbName*/
+                    if(dbStr.equals(justReadTB[i].split("\\.")[0]) && tbStr.equals(justReadTB[i].split("\\.")[1])){
                         skip = false;
                         break;
                     }
@@ -258,7 +259,8 @@ public class Mysql2es {
             /*判断该表是否需要跳过*/
             if(skipTB!=null) {
                 for (int i = 0; i < skipTB.length; ++i) {
-                    if (tbStr.equals(skipTB[i].split("\\.")[0]) && tbStr.equals(skipTB[i].split("\\.")[1])) {
+                     /*dbName.tbName*/
+                    if (dbStr.equals(skipTB[i].split("\\.")[0]) && tbStr.equals(skipTB[i].split("\\.")[1])) {
                         skip = true;
                         break;
                     }
