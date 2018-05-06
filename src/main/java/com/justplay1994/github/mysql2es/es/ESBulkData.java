@@ -51,7 +51,7 @@ public class ESBulkData{
                 10,
                 200,
                 TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<Runnable>(8)     //等待队列
+                new ArrayBlockingQueue<Runnable>(Mysql2es.maxThreadCount)     //等待队列
         );
 
         /*用于按块大小，切分批量数据请求*/
