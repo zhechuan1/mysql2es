@@ -116,6 +116,8 @@ public class ESBulkData{
                                         "}";
 //                        createMapping(Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()), mapping);
 
+                        String indexName = Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
+                        executor.execute(new Thread(new MappingThread(indexName,mapping)));
                         /*如果当前线程数达到最大值，则阻塞等待*/
                         while(executor.getActiveCount()>=Mysql2es.maxThreadCount){
                             logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
@@ -127,8 +129,6 @@ public class ESBulkData{
                                 logger.error("sleep error!",e);
                             }
                         }
-                        String indexName = Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
-                        executor.execute(new Thread(new MappingThread(indexName,mapping)));
                     } catch (JsonProcessingException e) {
                         e.printStackTrace();
                     }
