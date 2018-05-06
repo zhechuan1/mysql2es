@@ -115,18 +115,30 @@ public class ESBulkData{
                                         "    }\n" +
                                         "}";
 //                        createMapping(Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()), mapping);
-                        executor.execute(new Thread(new MappingThread(Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName()),mapping)));
+
+                        /*如果当前线程数达到最大值，则阻塞等待*/
+                        while(executor.getActiveCount()>=Mysql2es.maxThreadCount){
+                            logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
+//                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
+                            long time = 100;
+                            try {
+                                Thread.sleep(time);
+                            } catch (InterruptedException e) {
+                                logger.error("sleep error!",e);
+                            }
+                        }
+                        String indexName = Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
+                        executor.execute(new Thread(new MappingThread(indexName,mapping)));
                     } catch (JsonProcessingException e) {
                         e.printStackTrace();
                     }
 
-
                 }
             }
         }
-        while(executor.getActiveCount()<=0){
+        while(executor.getActiveCount()!=0){
             try {
-                Thread.sleep(200);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 logger.error("sleep error!\n",e);
             }
@@ -216,7 +228,7 @@ public class ESBulkData{
                         blockRowNumber = 0;
                         /*如果当前线程数达到最大值，则阻塞等待*/
                         while(executor.getActiveCount()>=Mysql2es.maxThreadCount){
-                            logger.debug("max Thread:"+executor.getActiveCount());
+                            logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
 //                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
                             long time = 200;
                             try {
