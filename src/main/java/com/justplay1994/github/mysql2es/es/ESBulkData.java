@@ -47,8 +47,8 @@ public class ESBulkData{
         /*TODO 待优化，构造的请求体，执行了就删掉*/
 //        新的方式：使用线程池
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                0,
                 Mysql2es.maxThreadCount,
-                10,
                 200,
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<Runnable>(Mysql2es.maxThreadCount)     //等待队列
