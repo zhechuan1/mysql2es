@@ -119,7 +119,7 @@ public class ESBulkData{
                         String indexName = Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
                         executor.execute(new Thread(new MappingThread(indexName,mapping)));
                         /*如果当前线程数达到最大值，则阻塞等待*/
-                        while(executor.getActiveCount()>=Mysql2es.maxThreadCount){
+                        while(executor.getActiveCount()>=executor.getMaximumPoolSize()){
                             logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
 //                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
                             long time = 100;
@@ -130,7 +130,7 @@ public class ESBulkData{
                             }
                         }
                     } catch (JsonProcessingException e) {
-                        e.printStackTrace();
+                        logger.error("json error!\n",e);
                     }
 
                 }
@@ -143,6 +143,7 @@ public class ESBulkData{
                 logger.error("sleep error!\n",e);
             }
         }
+        logger.info("begin input data...");
         /*遍历数据，构造请求参数*/
         databaseNodeIt = rows.iterator();
         boolean skip = true;
@@ -227,7 +228,7 @@ public class ESBulkData{
                         json.delete(0,json.length());
                         blockRowNumber = 0;
                         /*如果当前线程数达到最大值，则阻塞等待*/
-                        while(executor.getActiveCount()>=Mysql2es.maxThreadCount){
+                        while(executor.getActiveCount()>=executor.getMaximumPoolSize()){
                             logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
 //                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
                             long time = 200;
