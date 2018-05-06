@@ -57,6 +57,8 @@ public class Mysql2es {
     public static int retryNumber;
     public static String propertiesPath;
 
+    private static String dataDictionaryPath="dataDictionary.properties";/*数据字典的路径*/
+
     static Properties properties = new Properties();/*Mysql相关属性*/
 
     /**
@@ -72,10 +74,10 @@ public class Mysql2es {
 
     public static void main(String[] args){
         logger.info("start copy data from mysql to es ...");
-        Mysql2es mysql2es = new Mysql2es(args);
+        Mysql2es mysql2es = new Mysql2es();
         mysql2es.doInput();
     }
-    public Mysql2es(String[] _propertiesPath){
+    public Mysql2es(){
 //        try {
 //            this.propertiesPath = _propertiesPath[0];
 //        }catch (Exception e){
@@ -155,7 +157,11 @@ public class Mysql2es {
         {
 
             /*获取所有表结构*/
-            getAllDatabaseStructure();
+            try {
+                getAllDatabaseStructure();
+            } catch (IOException e) {
+                logger.error("get data structure error!\n",e);
+            }
 
             /*获取所有数据*/
             getAllData();
@@ -191,11 +197,22 @@ public class Mysql2es {
     }
 
     /**
-     * 获取所有库表结构，保存至databaseNodeList
+     * 获取所有库表结构，保存至databaseNodeList,并生成数据字典，输出至文件中
      * @return
      * @throws SQLException
      */
-    public static void getAllDatabaseStructure() throws SQLException {
+    public static void getAllDatabaseStructure() throws SQLException, IOException {
+//        File file = new File("D:" + File.separator + "demo" + File.separator + "test.txt");
+        File file = new File(dataDictionaryPath);
+//        if(!file.getParentFile().exists()){
+//            file.getParentFile().mkdirs();
+//        }
+
+        //2：准备输出流
+        Writer out = new FileWriter(file);
+
+
+
         /*连接Mysql相关变量*/
         Connection con = null;
         ResultSet rs = null;
@@ -224,6 +241,7 @@ public class Mysql2es {
             String tbStr = rs.getString("TABLE_NAME");
             String dbStr = rs.getString("TABLE_SCHEMA");
             String dataType = rs.getString("DATA_TYPE");
+            String colComment = rs.getString("COLUMN_COMMENT");
 
             boolean skip = false;
             /*判断该库是否是必须读取*/
@@ -268,7 +286,10 @@ public class Mysql2es {
             }
 
             if(skip)continue;
+            /*TODO 生成数据字典：输出字段-字段comment映射表至文件中*/
+            out.write(dbStr+"."+tbStr+"."+colStr+":"+colComment+"\n");
 
+            /*保存DB相关数据*/
             if (lastDB==null){
                 lastDB = new DatabaseNode(dbStr,new ArrayList<TableNode>());
                 lastTable =null;
@@ -280,23 +301,30 @@ public class Mysql2es {
                     DatabaseNodeListInfo.databaseNodeList.add(lastDB);
                 }
             }
-            if(lastTable==null){
-                lastTable = new TableNode(tbStr);
-                lastTable.getColumns().add(colStr);
-                lastTable.dataType.add(dataType);
-                lastDB.getTableNodeList().add(lastTable);
-            }else{
-                if(!tbStr.equals(lastTable.getTableName())){
+            /*保存表相关数据*/
+//            if(lastTable==null){
+//                lastTable = new TableNode(tbStr);
+//                lastTable.getColumns().add(colStr);
+//                lastTable.getDataType().add(dataType);
+////                lastTable.getCloumnComment().add(colComment);
+//                lastDB.getTableNodeList().add(lastTable);
+//            }else{
+                if(lastTable==null || !tbStr.equals(lastTable.getTableName())){
                     lastTable = new TableNode(tbStr);
                     lastTable.getColumns().add(colStr);
-                    lastTable.dataType.add(dataType);
+                    lastTable.getDataType().add(dataType);
+//                    lastTable.getCloumnComment().add(colComment);
                     lastDB.getTableNodeList().add(lastTable);
                 }else{
                     lastTable.getColumns().add(colStr);
-                    lastTable.dataType.add(dataType);
+                    lastTable.getDataType().add(dataType);
+//                    lastTable.getCloumnComment().add(colComment);
+
                 }
-            }
+//            }
         }
+        /*关闭文件输出流*/
+        out.close();
         /*获取所有库、表、列名结束*/
         /*TODO 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
         rs.close();

@@ -90,7 +90,7 @@ public class ESBulkData{
                     textAnalyzer.put("analyzer","ik_max_word");
                     textAnalyzer.put("search_analyzer","ik_max_word");
                     for(int i = 0; i < tableNode.getColumns().size(); ++i){
-                        if(tableNode.dataType.get(i).equals("varchar")) {
+                        if(tableNode.getDataType().get(i).equals("varchar")) {
                             properties.put(tableNode.getColumns().get(i), textAnalyzer);
                         }
                     }

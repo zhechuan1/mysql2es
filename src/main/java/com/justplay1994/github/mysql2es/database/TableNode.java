@@ -11,10 +11,27 @@ public class TableNode {
     String tableName;
     ArrayList<String> columns;
     ArrayList<ArrayList<String>> rows;
-    public ArrayList<String> dataType;/*字段类型*/
+    private ArrayList<String> dataType;/*字段类型*/
+    ArrayList<String> cloumnComment; /*字段描述*/
 
     public TableNode(){
 
+    }
+
+    public ArrayList<String> getDataType() {
+        return dataType;
+    }
+
+    public void setDataType(ArrayList<String> dataType) {
+        this.dataType = dataType;
+    }
+
+    public ArrayList<String> getCloumnComment() {
+        return cloumnComment;
+    }
+
+    public void setCloumnComment(ArrayList<String> cloumnComment) {
+        this.cloumnComment = cloumnComment;
     }
 
     public TableNode(String tableName){
