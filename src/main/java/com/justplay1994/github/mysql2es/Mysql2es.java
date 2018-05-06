@@ -74,27 +74,35 @@ public class Mysql2es {
 
     public static void main(String[] args){
         logger.info("start copy data from mysql to es ...");
-        Mysql2es mysql2es = new Mysql2es();
+        Mysql2es mysql2es = new Mysql2es(args);
         mysql2es.doInput();
     }
-    public Mysql2es(){
+    public Mysql2es(String[] args){
 //        try {
 //            this.propertiesPath = _propertiesPath[0];
 //        }catch (Exception e){
 //            this.propertiesPath = "/mysql2es.properties";
 //        }
 //        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
-        System.out.println(System.getProperty("java.class.path"));//系统的classpath路径
-        System.out.println(System.getProperty("user.dir"));//用户的当前路径
+//        System.out.println(System.getProperty("java.class.path"));//系统的classpath路径
+//        System.out.println(System.getProperty("user.dir"));//用户的当前路径
 //        String path = System.getProperty("user.dir")+"/mysql2es.properties";
-        String path = "mysql2es.properties";
-        System.out.println(path);
+//        String path = "mysql2es.properties";
+
 //        InputStream inputStream =this.getClass().getResourceAsStream(path);
 //        File f = new File("E:"+File.separator+"java2"+File.separator+"StreamDemo"+File.separator+"test.txt");
-        File f = new File(path);
+        File f = null;
+        InputStream inputStream=null;
 
         try {
-            InputStream inputStream = new FileInputStream(f);
+            if (args!=null && args.length>0) {
+                String path = args[0];
+                System.out.println(path);
+                f = new File(path);
+                inputStream = new FileInputStream(f);
+            }else{
+                inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
+            }
             properties.load(inputStream);
         } catch (IOException e) {
             logger.error("读取配置文件失败",e);
@@ -135,6 +143,9 @@ public class Mysql2es {
         参考 https://blog.csdn.net/ja_II_ck/article/details/3905120
         */
         properties.setProperty("zeroDateTimeBehavior","convertToNull");
+
+        logger.info("mysqlUrl: " + URL);
+        logger.info("esUrl: "+ ESUrl);
     }
 
     /**
@@ -243,6 +254,7 @@ public class Mysql2es {
             String dataType = rs.getString("DATA_TYPE");
             String colComment = rs.getString("COLUMN_COMMENT");
 
+            logger.debug(dbStr+"."+tbStr+"."+colComment);
             boolean skip = false;
             /*判断该库是否是必须读取*/
             if(justReadDB!=null){
@@ -287,7 +299,7 @@ public class Mysql2es {
 
             if(skip)continue;
             /*TODO 生成数据字典：输出字段-字段comment映射表至文件中*/
-            out.write(dbStr+"."+tbStr+"."+colStr+":"+colComment+"\n");
+            out.write(dbStr+"."+tbStr+"."+colStr+"="+colComment+"\n");
 
             /*保存DB相关数据*/
             if (lastDB==null){
