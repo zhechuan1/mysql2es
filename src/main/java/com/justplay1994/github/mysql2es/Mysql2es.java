@@ -103,7 +103,7 @@ public class Mysql2es {
             }else{
                 inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
             }
-            properties.load(inputStream);
+            properties.load(new InputStreamReader(inputStream,"UTF-8"));
         } catch (IOException e) {
             logger.error("读取配置文件失败",e);
         }

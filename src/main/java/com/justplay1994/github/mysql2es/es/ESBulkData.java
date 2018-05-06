@@ -114,13 +114,21 @@ public class ESBulkData{
                                         "        }\n" +
                                         "    }\n" +
                                         "}";
-                        createMapping(Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()), mapping);
+//                        createMapping(Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()), mapping);
+                        executor.execute(new Thread(new MappingThread(Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName()),mapping)));
                     } catch (JsonProcessingException e) {
                         e.printStackTrace();
                     }
 
 
                 }
+            }
+        }
+        while(executor.getActiveCount()<=0){
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                logger.error("sleep error!\n",e);
             }
         }
         /*遍历数据，构造请求参数*/
@@ -286,25 +294,6 @@ public class ESBulkData{
 
     }
 
-    public void createMapping(String indexName, String mapping){
-        logger.info("creating mapping...");
-
-        /*创建索引映射*/
-
-        try {
-            new MyURLConnection().request(ESUrl + indexName,"PUT",mapping);
-            logger.info("mapping finished! indexName: "+ indexName);
-        } catch (MalformedURLException e) {
-            logger.error("【MappingError】", e);
-            logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
-        } catch (ProtocolException e) {
-            logger.error("【MappingError】", e);
-            logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
-        } catch (IOException e) {
-            logger.error("【MappingError】", e);
-            logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
-        }
-    }
 
     /**
      * 检查数量
