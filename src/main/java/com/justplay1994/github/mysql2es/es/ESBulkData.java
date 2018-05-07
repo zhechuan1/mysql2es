@@ -119,7 +119,7 @@ public class ESBulkData{
                         String indexName = Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
                         executor.execute(new Thread(new MappingThread(indexName,mapping)));
                         /*如果当前线程数达到最大值，则阻塞等待*/
-                        while(executor.getActiveCount()>=executor.getMaximumPoolSize()){
+                        while(executor.getQueue().size()>=executor.getMaximumPoolSize()){
                             logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
 //                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
                             long time = 100;
@@ -136,7 +136,7 @@ public class ESBulkData{
                 }
             }
         }
-        while(executor.getActiveCount()!=0){
+        while(executor.getActiveCount()!=0 || executor.getQueue().size()!=0){
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -228,7 +228,7 @@ public class ESBulkData{
                         json.delete(0,json.length());
                         blockRowNumber = 0;
                         /*如果当前线程数达到最大值，则阻塞等待*/
-                        while(executor.getActiveCount()>=executor.getMaximumPoolSize()){
+                        while(executor.getQueue().size()>=executor.getMaximumPoolSize()){
                             logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
 //                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
                             long time = 200;
@@ -246,7 +246,7 @@ public class ESBulkData{
         executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.toString(), blockRowNumber)));
 
         /*阻塞等待线程结束*/
-        while(executor.getActiveCount()!=0){
+        while(executor.getActiveCount()!=0 || executor.getQueue().size()!=0){
 //            logger.info("wait thread number : " + executor.getActiveCount());
             long time = 1000;
             try {

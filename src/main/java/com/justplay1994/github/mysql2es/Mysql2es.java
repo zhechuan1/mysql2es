@@ -39,6 +39,7 @@ public class Mysql2es {
     static String URL = "jdbc:mysql://localhost:3306/";
     static String USER = "root";
     static String PASSWORD = "1";
+    static String justDictionary="false";/*仅仅执行数据字段生成操作，不导入数据*/
 
 //    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
 //    public static int dbNumber=0;/*数据库总数量*/
@@ -107,6 +108,7 @@ public class Mysql2es {
         } catch (IOException e) {
             logger.error("读取配置文件失败",e);
         }
+        justDictionary= (String) properties.get("justDictionary");
         ESUrl = properties.getProperty("ESUrl");
         latStr = (String) properties.get("latStr");
         lonStr = (String) properties.get("lonStr");
@@ -173,6 +175,10 @@ public class Mysql2es {
             } catch (IOException e) {
                 logger.error("get data structure error!\n",e);
             }
+
+            /*只生成数据字典，不导入数据*/
+            if ("true".equals(justDictionary))
+                return;
 
             /*获取所有数据*/
             getAllData();
