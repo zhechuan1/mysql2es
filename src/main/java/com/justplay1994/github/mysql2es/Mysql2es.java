@@ -81,7 +81,7 @@ public class Mysql2es {
         mysql2es.doInput();
 		long end = System.currentTimeMillis();
 		long minute = (end-start)/(1000*60);
-		long second = (end-start)/(1000);
+		long second = ((end-start)/1000)%60;
 		logger.info("total time:"+minute+"m:"+second+"s");
     }
     public Mysql2es(String[] args){
