@@ -75,11 +75,17 @@ public class Mysql2es {
 
 
     public static void main(String[] args){
+		long start = System.currentTimeMillis();
         logger.info("start copy data from mysql to es ...");
         Mysql2es mysql2es = new Mysql2es(args);
         mysql2es.doInput();
+		long end = System.currentTimeMillis();
+		long minute = (end-start)/(1000*60);
+		long second = (end-start)/(1000);
+		logger.info("total time:"+minute+"m:"+second+"s");
     }
     public Mysql2es(String[] args){
+		
 //        try {
 //            this.propertiesPath = _propertiesPath[0];
 //        }catch (Exception e){
