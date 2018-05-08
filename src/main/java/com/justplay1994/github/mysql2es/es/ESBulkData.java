@@ -107,7 +107,7 @@ public class ESBulkData{
 //                                        "\t\t}\n" +
 //                                        "\t},\n" +
                                         "    \"mappings\": {\n" +
-                                        "        \"_doc\": {\n" +
+                                        "        \""+Mysql2es.indexType+"\": {\n" +
                                         "            \"properties\": \n" +
                                         objectMapper.writeValueAsString(properties) +
                                         "            \n" +

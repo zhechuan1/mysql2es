@@ -110,8 +110,8 @@ public class Mysql2es {
             logger.error("读取配置文件失败",e);
         }
         justDictionary= (String) properties.get("justDictionary");
-        ESUrl = properties.getProperty("ESUrl");
-		indexType = properties.getProperty("indexType");
+        ESUrl = (String)properties.getProperty("ESUrl");
+		indexType = (String)properties.getProperty("indexType");
         latStr = (String) properties.get("latStr");
         lonStr = (String) properties.get("lonStr");
         BULKSIZE = Integer.parseInt(properties.get("BULKSIZE").toString())*1024*1024;
