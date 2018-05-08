@@ -40,6 +40,7 @@ public class Mysql2es {
     static String USER = "root";
     static String PASSWORD = "1";
     static String justDictionary="false";/*仅仅执行数据字段生成操作，不导入数据*/
+	static String indexType="_doc"; //默认索引的type类型
 
 //    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
 //    public static int dbNumber=0;/*数据库总数量*/
@@ -110,6 +111,7 @@ public class Mysql2es {
         }
         justDictionary= (String) properties.get("justDictionary");
         ESUrl = properties.getProperty("ESUrl");
+		indexType = properties.getProperty("indexType");
         latStr = (String) properties.get("latStr");
         lonStr = (String) properties.get("lonStr");
         BULKSIZE = Integer.parseInt(properties.get("BULKSIZE").toString())*1024*1024;
@@ -132,7 +134,7 @@ public class Mysql2es {
         justReadDB = properties.get("justReadDB")!=null ? ((String)properties.get("justReadDB")).replace(" ","").split(","):null;
         justReadTB = properties.get("justReadTB")!=null ? ((String)properties.get("justReadTB")).replace(" ","").split(","):null;
         retryNumber = Integer.parseInt((String) properties.get("retryNumber"));
-
+		
         /*初始化Mysql属性*/
         properties.setProperty("user",USER);
         properties.setProperty("password",PASSWORD);
