@@ -46,16 +46,17 @@ public class MyURLConnection {
             HttpURLConnection httpURLConnection = (HttpURLConnection) urlConnection;
 
             /*输入默认为false，post需要打开*/
-        if(!"GET".equals(type)) {
-            httpURLConnection.setDoInput(true);
-            OutputStream outputStream = httpURLConnection.getOutputStream();
-            outputStream.write(body.getBytes());
-        }
+
             httpURLConnection.setDoOutput(true);
             httpURLConnection.setRequestProperty("Content-Type", "application/json");
 
             httpURLConnection.setRequestMethod(type);
 
+        if(!"GET".equals(type)) {
+        httpURLConnection.setDoInput(true);
+        OutputStream outputStream = httpURLConnection.getOutputStream();
+        outputStream.write(body.getBytes());
+        }
 
             /*超时*/
             httpURLConnection.setConnectTimeout(timeout);
