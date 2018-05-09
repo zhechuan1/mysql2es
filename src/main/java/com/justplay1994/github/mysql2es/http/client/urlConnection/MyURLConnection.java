@@ -4,7 +4,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class MyURLConnection {
     private static final Logger logger = LoggerFactory.getLogger(MyURLConnection.class);
@@ -12,8 +17,12 @@ public class MyURLConnection {
     String type;
     String body;
     String result;
-
+    int timeout = 3000;
     public MyURLConnection(){
+
+    }
+    public MyURLConnection(int timeout){
+        this.timeout = timeout;
 
     }
 
@@ -26,7 +35,8 @@ public class MyURLConnection {
      */
     public String request(String url, String type, String body) throws IOException {
 
-        logger.debug("[url:"+url+" type:"+type+" body:"+body+"]");
+
+
 //            URL url = new URL(url);
             this.url = url;
             this.type = type;
@@ -36,7 +46,11 @@ public class MyURLConnection {
             HttpURLConnection httpURLConnection = (HttpURLConnection) urlConnection;
 
             /*输入默认为false，post需要打开*/
+        if(!"GET".equals(type)) {
             httpURLConnection.setDoInput(true);
+            OutputStream outputStream = httpURLConnection.getOutputStream();
+            outputStream.write(body.getBytes());
+        }
             httpURLConnection.setDoOutput(true);
             httpURLConnection.setRequestProperty("Content-Type", "application/json");
 
@@ -44,15 +58,13 @@ public class MyURLConnection {
 
 
             /*超时*/
-//            httpURLConnection.setConnectTimeout(3000);
+            httpURLConnection.setConnectTimeout(timeout);
 
 
             httpURLConnection.connect();
 
 
-            OutputStream outputStream = httpURLConnection.getOutputStream();
 
-            outputStream.write(body.getBytes());
 
 
             InputStream inputStream = httpURLConnection.getInputStream();
@@ -69,5 +81,41 @@ public class MyURLConnection {
             httpURLConnection.disconnect();/*关闭连接*/
             return result;
 
+    }
+
+
+    public static void main(String[] args){
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                20,
+                20,
+                200,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<Runnable>(300)     //等待队列
+        );
+
+        for(int i = 50; i <= 255; ++i){
+            executor.execute(new Runnable() {
+                private int i;
+                @Override
+                public void run() {
+                    try {
+//                        logger.info("try :"+i);
+                        new MyURLConnection(100).request("http://192.168.16."+i+":9200","GET","");
+                        logger.info("success："+i);
+                    } catch (IOException e) {
+//                        logger.error("failed: "+i,e);
+                    }
+                }
+                public Runnable test(int i){
+                    this.i = i;
+                    return this;
+                }
+            }.test(i));
+
+        }
+        while (!(executor.getActiveCount() == 0 && executor.getQueue().size()==0)){
+            executor.shutdown();
+        }
     }
 }
