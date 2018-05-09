@@ -107,7 +107,7 @@ public class ESBulkData{
 //                                        "\t\t}\n" +
 //                                        "\t},\n" +
                                         "    \"mappings\": {\n" +
-                                        "        \"_doc\": {\n" +
+                                        "        \""+Mysql2es.indexType+"\": {\n" +
                                         "            \"properties\": \n" +
                                         objectMapper.writeValueAsString(properties) +
                                         "            \n" +
@@ -208,9 +208,9 @@ public class ESBulkData{
                     }
                     /*请求head*/
                     if(id!=-1) {
-                        json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \"_doc\", \"_id\": \""+row.get(id)+"\"}}\n");
+                        json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \""+Mysql2es.indexType+"\", \"_id\": \""+row.get(id)+"\"}}\n");
                     }else{
-                        json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \"_doc\"}}\n");
+                        json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \""+Mysql2es.indexType+"\"}}\n");
                     }
 
                     /*请求body*/
