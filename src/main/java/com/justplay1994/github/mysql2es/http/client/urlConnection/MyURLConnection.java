@@ -52,6 +52,11 @@ public class MyURLConnection {
 
             httpURLConnection.setRequestMethod(type);
 
+        if(!"GET".equals(type)) {
+        httpURLConnection.setDoInput(true);
+        OutputStream outputStream = httpURLConnection.getOutputStream();
+        outputStream.write(body.getBytes());
+        }
 
             /*设置超时*/
             httpURLConnection.setConnectTimeout(timeout);
