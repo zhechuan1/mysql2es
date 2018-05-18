@@ -42,6 +42,8 @@ public class Mysql2es {
     static String justDictionary="false";/*仅仅执行数据字段生成操作，不导入数据*/
 	public static String indexType="_doc"; //默认索引的type类型
 
+    public static String DateTime="false";/*是否要识别时间字段*/
+
 //    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
 //    public static int dbNumber=0;/*数据库总数量*/
 //    public static int tbNumber = 0;/*表总数量*/
@@ -115,6 +117,7 @@ public class Mysql2es {
         } catch (IOException e) {
             logger.error("读取配置文件失败",e);
         }
+        DateTime=(String)properties.get("DateTime");
         justDictionary= (String) properties.get("justDictionary");
         ESUrl = (String)properties.getProperty("ESUrl");
 		indexType = (String)properties.getProperty("indexType");

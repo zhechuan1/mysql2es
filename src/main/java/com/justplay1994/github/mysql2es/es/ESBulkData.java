@@ -44,7 +44,6 @@ public class ESBulkData{
 
 
     public void inputData(){
-        /*TODO 待优化，构造的请求体，执行了就删掉*/
 //        新的方式：使用线程池
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 0,
@@ -73,7 +72,7 @@ public class ESBulkData{
 
                     TableNode tableNode = tableNodeIterator.next();
                     //每张表先创建mapping关系，创建location为地理信息点类型
-                    /*TODO 遍历字段名，给每一个字段增加分词器
+                    /*遍历字段名，给每一个字段增加分词器
                     * 每个属性增加：
                     * {"type":"text",
                 	    "analyzer": "ik_max_word",
@@ -89,9 +88,18 @@ public class ESBulkData{
                     textAnalyzer.put("type","text");
                     textAnalyzer.put("analyzer","ik_max_word");
                     textAnalyzer.put("search_analyzer","ik_max_word");
+                    /*时间字段*/
+                    HashMap dateTime = new HashMap();
+                    dateTime.put("type","date");
+                    dateTime.put("format","yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis");
+
                     for(int i = 0; i < tableNode.getColumns().size(); ++i){
                         if(tableNode.getDataType().get(i).equals("varchar")) {
                             properties.put(tableNode.getColumns().get(i), textAnalyzer);
+                        }else if("true".equalsIgnoreCase(Mysql2es.DateTime)) {
+                            if (tableNode.getDataType().get(i).equals("datetime")){
+                                properties.put(tableNode.getColumns().get(i), dateTime);
+                            }
                         }
                     }
                     try {
@@ -170,7 +178,8 @@ public class ESBulkData{
                 int lon=-1;
                 /*找到id下标*/
                 int id=-1;
-
+                /*类型为dateTime的下标*/
+                List<Integer> dateTime=new ArrayList<Integer>();
                 /*遍历列名，找到经纬度字段对应下标*/
                 for(int i = 0; i < tableNode.getColumns().size(); ++i){
 
@@ -180,8 +189,14 @@ public class ESBulkData{
                         lon=i;
                     }else if("id".equalsIgnoreCase(tableNode.getColumns().get(i))) {
                         id=i;
-                    }else{
+                    } else{
                         if(lat!=-1 && lon!=-1 && id!=-1)break;
+                    }
+                }
+                for (int i = 0; i < tableNode.getDataType().size(); ++i){
+                    if("datetime".equalsIgnoreCase(tableNode.getDataType().get(i))){
+                        dateTime.add(i);
+                        continue;
                     }
                 }
 
@@ -196,6 +211,15 @@ public class ESBulkData{
                         /*去除空数据*/
                         if(row.get(i)!=null && !row.get(i).equals(""))
                             map.put(tableNode.getColumns().get(i),row.get(i));
+                    }
+                    if("true".equalsIgnoreCase(Mysql2es.DateTime)) {
+                    /*处理时间字段，截取2018-05-02 16:13:00.0 的最后两位 .0*/
+                        for (int index : dateTime) {
+                            String str = row.get(index);
+                            if(str==null||str.isEmpty())continue;
+                            str = str.substring(0, str.length() - 2);
+                            map.put(tableNode.getColumns().get(index), str);
+                        }
                     }
                     /*根据已找到的经纬度字段，进行格式转换*/
                     if(lat!=-1 && lon!=-1){

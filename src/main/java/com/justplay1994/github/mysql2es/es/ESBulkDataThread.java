@@ -55,7 +55,7 @@ public class ESBulkDataThread implements Runnable {
             /*201是成功插入，209是失败，*/
             ObjectMapper objectMapper = new ObjectMapper();
             Map map =objectMapper.readValue(result.getBytes(),Map.class);
-            if("ture".equals(map.get("errors"))){
+            if("true".equals(map.get("errors").toString())){
                 logger.error("insert error:");
                 logger.error(getRequestFullData());
                 addNowFailedRowNumber(blockRowNumber);
