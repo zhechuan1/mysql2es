@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 
+/**
+ * 创建mapping的线程实例
+ */
 public class MappingThread implements Runnable{
     private static final Logger logger = LoggerFactory.getLogger(MappingThread.class);
 

@@ -2,15 +2,14 @@ package com.justplay1994.github.mysql2es.database;
 
 import java.util.ArrayList;
 
-/**
- * Created by JustPlay1994 on 2018/4/3.
- * https://github.com/JustPlay1994/daily-log-manager
- */
 
+/**
+ * 表节点，存放该表所有数据、字段名、字段类型、字段描述
+ */
 public class TableNode {
-    String tableName;
-    ArrayList<String> columns;
-    ArrayList<ArrayList<String>> rows;
+    String tableName;       /*表名*/
+    ArrayList<String> columns;  /*字段名*/
+    ArrayList<ArrayList<String>> rows;  /*数据列表*/
     private ArrayList<String> dataType;/*字段类型*/
     ArrayList<String> cloumnComment; /*字段描述*/
 

@@ -11,6 +11,7 @@ import java.util.List;
 
 /**
  * Created by HZZ on 2018/4/19.
+ * 数据库列表，存放所有的数据库
  */
 public class DatabaseNodeListInfo {
     public static List<DatabaseNode> databaseNodeList;/*所有数据*/

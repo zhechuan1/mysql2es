@@ -36,9 +36,9 @@ public class Mysql2es {
     public static int BULKSIZE = 10*1024*1024;/*批量块大小，单位：B*/
     public static int maxThreadCount = 8;/*最大线程数*/
     static String driver = "com.mysql.jdbc.Driver";
-    static String URL = "jdbc:mysql://localhost:3306/";
-    static String USER = "root";
-    static String PASSWORD = "1";
+    static String driverUrl = "jdbc:mysql://localhost:3306/";
+    static String user = "root";
+    static String password = "1";
     static String justDictionary="false";/*仅仅执行数据字段生成操作，不导入数据*/
 	public static String indexType="_doc"; //默认索引的type类型
 
@@ -49,7 +49,7 @@ public class Mysql2es {
 //    public static int tbNumber = 0;/*表总数量*/
 //    public static long rowNumber=0;/*总数据量*/
 
-    /*跳过的数据库的集合*/
+    /*跳过的数据库的集合，TODO Oracle需要进行更改*/
     public static String[] skipDB = {"information_schema","mysql","performance_schema","sys"};
     /*跳过表的集合*/
     public static String[] skipTB;
@@ -57,16 +57,13 @@ public class Mysql2es {
     public static String[] justReadDB;
     /*必须读取表的集合*/
     public static String[] justReadTB;
-    /*数据量校验失败的表，最大重试次数*/
-    public static int retryNumber;
-    public static String propertiesPath;
 
     private static String dataDictionaryPath="dataDictionary.properties";/*数据字典的路径*/
 
-    static Properties properties = new Properties();/*Mysql相关属性*/
+    static Properties properties = new Properties();/*该实例用于读取配置文件*/
 
     /**
-     * 索引与库表名的关系映射
+     * 索引名与库表名的关系映射
      * @param dbName
      * @param tbName
      * @return 索引名称
@@ -78,30 +75,17 @@ public class Mysql2es {
 
     public static void main(String[] args){
 		long start = System.currentTimeMillis();
-        logger.info("start copy data from mysql to es ...");
+        logger.info("Start copy data from mysql to es ...");
         Mysql2es mysql2es = new Mysql2es(args);
         mysql2es.doInput();
+        logger.info("Finished copy data from mysql to es");
 		long end = System.currentTimeMillis();
 		long minute = (end-start)/(1000*60);
 		long second = ((end-start)/1000)%60;
 		logger.info("total time:"+minute+"m:"+second+"s");
     }
     public Mysql2es(String[] args){
-		
-//        try {
-//            this.propertiesPath = _propertiesPath[0];
-//        }catch (Exception e){
-//            this.propertiesPath = "/mysql2es.properties";
-//        }
-//        InputStream inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
-//        System.out.println(System.getProperty("java.class.path"));//系统的classpath路径
-//        System.out.println(System.getProperty("user.dir"));//用户的当前路径
-//        String path = System.getProperty("user.dir")+"/mysql2es.properties";
-//        String path = "mysql2es.properties";
-
-//        InputStream inputStream =this.getClass().getResourceAsStream(path);
-//        File f = new File("E:"+File.separator+"java2"+File.separator+"StreamDemo"+File.separator+"test.txt");
-        File f = null;
+		File f = null;
         InputStream inputStream=null;
 
         try {
@@ -126,9 +110,9 @@ public class Mysql2es {
         BULKSIZE = Integer.parseInt(properties.get("BULKSIZE").toString())*1024*1024;
         maxThreadCount = Integer.parseInt(properties.get("maxThreadCount").toString());
         this.driver = (String) properties.get("driver");
-        this.URL = (String) properties.get("URL");
-        this.USER = (String) properties.get("USER");
-        this.PASSWORD = (String) properties.get("PASSWORD");
+        this.driverUrl = (String) properties.get("URL");
+        this.user = (String) properties.get("USER");
+        this.password = (String) properties.get("PASSWORD");
         int num  = skipDB.length;
 //        skipDB = properties.get("skipDB")!=null ? ((String)properties.get("skipDB")).replace(" ","").split(","):skipDB;
         if((String)properties.get("skipDB")!=null) {
@@ -142,11 +126,10 @@ public class Mysql2es {
         skipTB = properties.get("skipTB")!=null ? ((String)properties.get("skipTB")).replace(" ","").split(","):null;
         justReadDB = properties.get("justReadDB")!=null ? ((String)properties.get("justReadDB")).replace(" ","").split(","):null;
         justReadTB = properties.get("justReadTB")!=null ? ((String)properties.get("justReadTB")).replace(" ","").split(","):null;
-        retryNumber = Integer.parseInt((String) properties.get("retryNumber"));
 		
         /*初始化Mysql属性*/
-        properties.setProperty("user",USER);
-        properties.setProperty("password",PASSWORD);
+        properties.setProperty("user", user);
+        properties.setProperty("password", password);
         properties.setProperty("useSSL","false");
         properties.setProperty("verifyServerCertificate","false");
         /*
@@ -157,12 +140,12 @@ public class Mysql2es {
         */
         properties.setProperty("zeroDateTimeBehavior","convertToNull");
 
-        logger.info("mysqlUrl: " + URL);
+        logger.info("mysqlUrl: " + driverUrl);
         logger.info("esUrl: "+ ESUrl);
     }
 
     /**
-     * 首次导入数据
+     * 导入数据
      */
     public static void doInput(){
         /*注册驱动，那么在多线程，多种驱动的情况下，会发生什么？
@@ -194,9 +177,6 @@ public class Mysql2es {
             /*获取所有数据*/
             getAllData();
 
-            /*删除与导入数据索引名相同的索引*/
-            esDeleteAll();
-
             /*打印获取的数据总量情况*/
             logger.info("data is all in memory!");
             logger.info("========================");
@@ -205,7 +185,12 @@ public class Mysql2es {
             logger.info("rowNumber: "+ DatabaseNodeListInfo.rowNumber);
             logger.info("========================");
 
-            reTryInput();
+            /*删除与导入数据索引名相同的索引*/
+            esDeleteAll();
+
+            /*开始导入数据至es中*/
+            new ESBulkData(ESUrl, DatabaseNodeListInfo.databaseNodeList).inputData();
+
         }
         catch(SQLException e)
         {
@@ -214,32 +199,15 @@ public class Mysql2es {
     }
 
     /**
-     * 再次导入数据
-     */
-    public static void reTryInput(){
-        /*开始导入数据至es中*/
-        if(DatabaseNodeListInfo.databaseNodeList==null || DatabaseNodeListInfo.databaseNodeList.size()<=0){
-            return;
-        }
-        new ESBulkData(ESUrl, DatabaseNodeListInfo.databaseNodeList).inputData();
-    }
-
-    /**
      * 获取所有库表结构，保存至databaseNodeList,并生成数据字典，输出至文件中
      * @return
      * @throws SQLException
      */
     public static void getAllDatabaseStructure() throws SQLException, IOException {
-//        File file = new File("D:" + File.separator + "demo" + File.separator + "test.txt");
         File file = new File(dataDictionaryPath);
-//        if(!file.getParentFile().exists()){
-//            file.getParentFile().mkdirs();
-//        }
 
         //2：准备输出流
         Writer out = new FileWriter(file);
-
-
 
         /*连接Mysql相关变量*/
         Connection con = null;
@@ -249,7 +217,7 @@ public class Mysql2es {
         String sql = "select * from ";
 
         /*查询所有库、表、字段*/
-        con= DriverManager.getConnection(URL + "information_schema", properties);
+        con= DriverManager.getConnection(driverUrl + "information_schema", properties);
 
         logger.info("Connect mysql Successfull.");
 
@@ -315,7 +283,7 @@ public class Mysql2es {
             }
 
             if(skip)continue;
-            /*TODO 生成数据字典：输出字段-字段comment映射表至文件中*/
+            /*生成数据字典：输出字段-字段comment映射表至文件中*/
             out.write(dbStr+"."+tbStr+"."+colStr+"="+colComment+"\n");
 
             /*保存DB相关数据*/
@@ -330,32 +298,19 @@ public class Mysql2es {
                     DatabaseNodeListInfo.databaseNodeList.add(lastDB);
                 }
             }
-            /*保存表相关数据*/
-//            if(lastTable==null){
-//                lastTable = new TableNode(tbStr);
-//                lastTable.getColumns().add(colStr);
-//                lastTable.getDataType().add(dataType);
-////                lastTable.getCloumnComment().add(colComment);
-//                lastDB.getTableNodeList().add(lastTable);
-//            }else{
-                if(lastTable==null || !tbStr.equals(lastTable.getTableName())){
-                    lastTable = new TableNode(tbStr);
-                    lastTable.getColumns().add(colStr);
-                    lastTable.getDataType().add(dataType);
-//                    lastTable.getCloumnComment().add(colComment);
-                    lastDB.getTableNodeList().add(lastTable);
-                }else{
-                    lastTable.getColumns().add(colStr);
-                    lastTable.getDataType().add(dataType);
-//                    lastTable.getCloumnComment().add(colComment);
-
-                }
-//            }
+            if(lastTable==null || !tbStr.equals(lastTable.getTableName())){
+                lastTable = new TableNode(tbStr);
+                lastTable.getColumns().add(colStr);
+                lastTable.getDataType().add(dataType);;
+                lastDB.getTableNodeList().add(lastTable);
+            }else{
+                lastTable.getColumns().add(colStr);
+                lastTable.getDataType().add(dataType);
+            }
         }
         /*关闭文件输出流*/
         out.close();
         /*获取所有库、表、列名结束*/
-        /*TODO 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
         rs.close();
         st.close();
         con.close();
@@ -381,7 +336,7 @@ public class Mysql2es {
             DatabaseNodeListInfo.dbNumber++;
             DatabaseNode databaseNode = databaseNodeIt.next();
                 /*获取数据库连接*/
-            con = DriverManager.getConnection(URL+databaseNode.getDbName(),properties);
+            con = DriverManager.getConnection(driverUrl +databaseNode.getDbName(),properties);
             Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
             while(tableNodeIterator.hasNext()){
                 DatabaseNodeListInfo.tbNumber++;
@@ -412,83 +367,10 @@ public class Mysql2es {
     }
 
     /**
-     * 新建索引和映射
-     * 每个字段增加data_detection:false； 关闭自动转化为时间格式的功能。
-     * 所有的字段映射为text，经纬度映射为geo。防止数据字段映射为date，数据不一致（脏数据）会报错。
-     * 只能采用put请求
-     * es7.0的index不支持冒号，所以使用@隔开库与表
-     * @param dbName
-     * @param tbName
-     * @param row
+     * 删除已存在的同名索引，与navicat导入数据策略一致，先删再导
      */
-    public static void esMapping(String dbName, String tbName, Map<String,Object> row){
-        logger.info("esMapping ...");
-        try {
-            /*es索引要求必须是小写*/
-            dbName = dbName.toLowerCase();
-            tbName = tbName.toLowerCase();
-
-            HashMap propertiesMap = new HashMap();
-            Set<String> set = row.keySet();
-            Iterator<String> iterator = set.iterator();
-
-
-            /*映射基础字段*/
-            while(iterator.hasNext()){
-                HashMap temp = new HashMap();
-                String key = iterator.next();
-                temp.put("type", "text");
-                propertiesMap.put(key,temp);
-            }
-            /*增加地理信息字段*/
-            if(row.get(latStr)!=null && row.get(lonStr)!=null) {
-                HashMap location = new HashMap();
-                location.put("type", "geo_point"); //点
-//            location.put("type","geo_shape");     //面
-                propertiesMap.put("location", location);
-            }
-            HashMap indexMap = new HashMap();
-            HashMap mappingsMap = new HashMap();
-            HashMap  docMap= new HashMap();
-
-            docMap.put("properties",propertiesMap);
-            mappingsMap.put("_doc",docMap);
-            indexMap.put("mappings",mappingsMap);
-
-            URL url = new URL(ESUrl+dbName+"@"+tbName);
-            URLConnection urlConnection = url.openConnection();
-            HttpURLConnection httpURLConnection = (HttpURLConnection)urlConnection;
-
-            /*输入默认为false，post需要打开*/
-            httpURLConnection.setDoInput(true);
-            httpURLConnection.setDoOutput(true);
-            httpURLConnection.setRequestProperty("Content-Type","application/json");
-            httpURLConnection.setRequestMethod("PUT");
-            httpURLConnection.setConnectTimeout(3000);
-
-            httpURLConnection.connect();
-
-            OutputStream outputStream = httpURLConnection.getOutputStream();
-
-            ObjectMapper objectMapper = new ObjectMapper();
-            String json = objectMapper.writeValueAsString(indexMap);
-            logger.info(json);
-            outputStream.write(json.getBytes());
-
-            InputStream inputStream = httpURLConnection.getInputStream();
-//            System.out.println(inputStream);
-
-            httpURLConnection.disconnect();
-        } catch (MalformedURLException e) {
-            logger.error("error",e);
-        } catch (IOException e) {
-            logger.error("error",e);
-        }
-    }
-
     public static void esDeleteAll(){
         logger.info("delete already exist and conflict index ...");
-
 
             String url = "";
             if(DatabaseNodeListInfo.databaseNodeList==null || DatabaseNodeListInfo.databaseNodeList.size()<=0){
@@ -501,28 +383,18 @@ public class Mysql2es {
                 while (tableNodeIterator.hasNext()) {
                     TableNode tableNode = tableNodeIterator.next();
 
-                    /*批量删除*/
-//                    url+=Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName())+",";
-                    /*TODO 逐个删除*/
+                    /*逐个删除*/
                     url= Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
                     try {
                         new MyURLConnection().request(ESUrl+url,"DELETE","");
                         logger.info("delete success: "+url);
                     } catch (MalformedURLException e) {
-                        logger.error("delete index error",e);
+                        logger.error("delete index error: "+url,e);
                     } catch (IOException e) {
                         logger.error("delete index error",e);
                     }
                 }
             }
-
-//            url = url.substring(0,url.length()-1);
-//            new MyURLConnection().request(ESUrl+url,"DELETE","");
-
-//            new MyURLConnection().request("ESUrl+_all","DELETE","");
-
-
-
         logger.info("delete finished!");
     }
 

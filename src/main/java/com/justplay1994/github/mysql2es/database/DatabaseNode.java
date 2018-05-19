@@ -7,10 +7,13 @@ import java.util.List;
  * https://github.com/JustPlay1994/daily-log-manager
  */
 
+/**
+ * 数据库节点，存放一个数据库下的所有数据
+ */
 public class DatabaseNode {
-    String dbName;
-    List<TableNode> tableNodeList;
-    long rowNumber;
+    String dbName;      /*数据库名*/
+    List<TableNode> tableNodeList;  /*数据表列表*/
+    long rowNumber;     /*数据总行数*/
 
     public DatabaseNode(){
 

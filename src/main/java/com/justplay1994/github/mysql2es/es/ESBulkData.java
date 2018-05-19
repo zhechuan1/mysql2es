@@ -29,12 +29,12 @@ import java.util.concurrent.TimeUnit;
  * 或者获取所有的数据后，在起线程执行。这样对调用方来说更透明。
  */
 public class ESBulkData{
-    String ESUrl;
+    private String ESUrl;
     List<DatabaseNode> rows;/*批量数据*/
-    public static final Logger logger = LoggerFactory.getLogger(ESBulkData.class);
-    StringBuilder json = new StringBuilder();/*StringBuild更快，单线程使用*/
-    ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(ESBulkData.class);
+    static ObjectMapper objectMapper = new ObjectMapper();
     static StringBuilder retryTable = new StringBuilder();
+    long jsonSize = 0; /*本次总共请求数据包体大小，单位：字节*/
 
     public ESBulkData(String ESUrl, List<DatabaseNode> rows) {
         this.ESUrl = ESUrl;
@@ -42,9 +42,82 @@ public class ESBulkData{
     }
 
 
-
     public void inputData(){
-//        新的方式：使用线程池
+        /*创建es索引映射*/
+        createMapping();
+        /*导入数据*/
+        doBulkOperate();
+        /*校验表与索引的数据量是否相等*/
+        checkAllData();
+    }
+
+
+    /**
+     * 逐 表/索引 检查数量
+     */
+    public void checkAllData(){
+        logger.info("========================");
+        logger.info("check data number ...");
+        try {
+            Thread.sleep(500L);
+        } catch (InterruptedException e) {
+            logger.error("sleep error!",e);
+        }
+        long esTotalRowNumber = 0;/*统计本次es总共导入的数据量*/
+        /*查询es相关索引的数据量，验证数据量是否一致*/
+        Iterator<DatabaseNode> databaseNodeIt = rows.iterator();
+        while (databaseNodeIt.hasNext()) {
+            DatabaseNode databaseNode = databaseNodeIt.next();
+            Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
+
+            while (tableNodeIterator.hasNext()) {
+
+                TableNode tableNode = tableNodeIterator.next();
+
+                String dbName = databaseNode.getDbName();
+                String tbName = tableNode.getTableName();
+
+                /*计量本次es导入数据量*/
+                esTotalRowNumber += tableNode.getRows().size();
+                /*对比该表数据量与es导入的数据量是否一致*/
+                checkTableDataNumber(dbName,tbName,tableNode.getRows().size());
+
+            }
+        }
+        logger.info("this times es row number: "+esTotalRowNumber);
+        logger.info("this times data row number: "+ DatabaseNodeListInfo.rowNumber);
+        logger.info("check data number finished !");
+    }
+
+    /**
+     * 检查该表的数据总行数与es对应索引的总行数是否相等
+     * @param dbName
+     * @param tbName
+     * @param tableRowsSize
+     */
+    public void checkTableDataNumber(String dbName,String tbName, long tableRowsSize){
+        try {
+            String result = new MyURLConnection().request(ESUrl + Mysql2es.indexName(dbName, tbName) + "/_search", "POST", "");
+            Map map = objectMapper.readValue(result, Map.class);
+            long esNumber = Integer.parseInt(((LinkedHashMap) map.get("hits")).get("total").toString());
+            if (tableRowsSize != esNumber) {
+                logger.error("check number is not consistent! dbName= " + dbName+
+                        ", tbName= " + tbName + ", tbRowNumber= " + tableRowsSize +
+                        ", esRowNumber= " + esNumber);
+                retryTable.append(dbName).append(".").append(tbName).append(",");
+                DatabaseNodeListInfo.retryRowNumber += tableRowsSize;
+            }
+
+        } catch (IOException e) {
+            logger.error("[check number error]", e);
+        }
+    }
+
+    /**
+     * 创建es索引映射
+     */
+    public void createMapping(){
+        logger.info("begin create es mapping...");
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 0,
                 Mysql2es.maxThreadCount,
@@ -52,18 +125,8 @@ public class ESBulkData{
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<Runnable>(Mysql2es.maxThreadCount)     //等待队列
         );
-
-        /*用于按块大小，切分批量数据请求*/
-        int last = 0;/*上一次对块数据量整除，得到的值*/
-        int now = 0;/*当前对块数据量整除，得到的值*/
-
-        int blockRowNumber = 0;/*当前数据块的数据量大小，行数*/
-
-        StringBuilder json = new StringBuilder();
-        long jsonSize = 0;
-        Iterator<DatabaseNode> databaseNodeIt;
         /*遍历数据，构造Mapping*/
-        if(DatabaseNodeListInfo.retryTimes<=0) {/*如果不是重试，则创建mapping映射*/
+        Iterator<DatabaseNode> databaseNodeIt = null;
             databaseNodeIt = rows.iterator();
             while (databaseNodeIt.hasNext()) {
                 DatabaseNode databaseNode = databaseNodeIt.next();
@@ -105,31 +168,21 @@ public class ESBulkData{
                     try {
                         String mapping =
                                 " {\n" +
-//                                        "\t\"settings\":{\n" +
-//                                        "\t\t\"analysis\":{\n" +
-//                                        "\t\t\t\"analyzer\":{\n" +
-//                                        "\t\t\t\t\"ik\":{\n" +
-//                                        "\t\t\t\t\t\"tokenizer\":\"ik_smart\"\n" +
-//                                        "\t\t\t\t}\n" +
-//                                        "\t\t\t}\n" +
-//                                        "\t\t}\n" +
-//                                        "\t},\n" +
-                                        "    \"mappings\": {\n" +
-                                        "        \""+Mysql2es.indexType+"\": {\n" +
-                                        "            \"properties\": \n" +
-                                        objectMapper.writeValueAsString(properties) +
-                                        "            \n" +
-                                        "        }\n" +
-                                        "    }\n" +
-                                        "}";
-//                        createMapping(Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()), mapping);
+                                "    \"mappings\": {\n" +
+                                "        \""+Mysql2es.indexType+"\": {\n" +
+                                "            \"properties\": \n" +
+                                objectMapper.writeValueAsString(properties) +
+                                "            \n" +
+                                "        }\n" +
+                                "    }\n" +
+                                "}";
 
                         String indexName = Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName());
                         executor.execute(new Thread(new MappingThread(indexName,mapping)));
                         /*如果当前线程数达到最大值，则阻塞等待*/
                         while(executor.getQueue().size()>=executor.getMaximumPoolSize()){
-                            logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
-//                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行玩别的任务数目："+executor.getCompletedTaskCount());
+                            logger.debug("Thread waite ...Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
+//                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行完别的任务数目："+executor.getCompletedTaskCount());
                             long time = 100;
                             try {
                                 Thread.sleep(time);
@@ -143,16 +196,38 @@ public class ESBulkData{
 
                 }
             }
-        }
-        while(executor.getActiveCount()!=0 || executor.getQueue().size()!=0){
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                logger.error("sleep error!\n",e);
+            while(executor.getActiveCount()!=0 || executor.getQueue().size()!=0){
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    logger.error("sleep error!\n",e);
+                }
             }
+            /*关闭线程池*/
+            executor.shutdown();
+            logger.info("Finished to create es mapping!");
         }
+
+    /**
+     * 批量导入数据
+     */
+    public void doBulkOperate(){
         logger.info("begin input data...");
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                0,
+                Mysql2es.maxThreadCount,
+                100,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<Runnable>(Mysql2es.maxThreadCount)     //等待队列
+        );
+
+        int blockRowNumber = 0;/*当前数据块的数据量大小，行数*/
+
+        StringBuilder json = new StringBuilder();/*单线程使用*/
+
+
         /*遍历数据，构造请求参数*/
+        Iterator<DatabaseNode> databaseNodeIt;
         databaseNodeIt = rows.iterator();
         boolean skip = true;
         while(databaseNodeIt.hasNext()){/*遍历库*/
@@ -182,7 +257,6 @@ public class ESBulkData{
                 List<Integer> dateTime=new ArrayList<Integer>();
                 /*遍历列名，找到经纬度字段对应下标*/
                 for(int i = 0; i < tableNode.getColumns().size(); ++i){
-
                     if(Mysql2es.latStr.equalsIgnoreCase(tableNode.getColumns().get(i))){
                         lat=i;
                     }else if ((Mysql2es.lonStr.equalsIgnoreCase(tableNode.getColumns().get(i)))){
@@ -231,7 +305,7 @@ public class ESBulkData{
                         }
                     }
                     /*请求head*/
-                    if(id!=-1) {
+                    if(id!=-1) {/*没有id字段，es自动生成uuid*/
                         json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \""+Mysql2es.indexType+"\", \"_id\": \""+row.get(id)+"\"}}\n");
                     }else{
                         json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \""+Mysql2es.indexType+"\"}}\n");
@@ -249,7 +323,7 @@ public class ESBulkData{
                         /*为了节约内存空间，每次请求完成，则删除请求体*/
                         executor.execute(new Thread(new ESBulkDataThread(ESUrl, json.toString(), blockRowNumber)));
                         jsonSize+=json.length();
-                        json.delete(0,json.length());
+                        json.delete(0,json.length());/*清空请求数据体*/
                         blockRowNumber = 0;
                         /*如果当前线程数达到最大值，则阻塞等待*/
                         while(executor.getQueue().size()>=executor.getMaximumPoolSize()){
@@ -280,124 +354,14 @@ public class ESBulkData{
             }
         }
 
-
-
         /*关闭线程池*/
         executor.shutdown();
-        logger.info("first finished!");
+        logger.info("Input data finished!");
         logger.info("========================");
         logger.info("dbNumber: "+ DatabaseNodeListInfo.dbNumber);
         logger.info("tbNumber: "+DatabaseNodeListInfo.tbNumber);
         logger.info("rowNumber: "+DatabaseNodeListInfo.rowNumber);
         logger.info("total bulk body size(MB): "+jsonSize/1024/1024);
-        try {
-            Thread.sleep(1000);
-            String str = new MyURLConnection().request(ESUrl + "/_search", "POST", "");
-            Map map = objectMapper.readValue(str, Map.class);
-            long esNumber = Integer.parseInt(((LinkedHashMap) map.get("hits")).get("total").toString());
-            logger.info("es total row number: "+esNumber);
-        } catch (IOException e) {
-            logger.error("Search total error",e);
-        } catch (InterruptedException e) {
-            logger.error("sleep error");
-        }
-
-        logger.info("========================");
-
-
-
-
-
-        checkAllData();
-
-        /*判断是否有需要重新导入的表*/
-        if(retryTable.length()>0 && Mysql2es.retryNumber>0){
-            /*开始重试导入检查数据量失败的表*/
-            Mysql2es.retryNumber--;/*剩余重试次数-1*/
-            /*在数据信息中，添加重试次数以及重试数据总量*/
-            DatabaseNodeListInfo.retryTimes++;/*重试次数+1*/
-            /*初始化进度条*/
-            ESBulkDataThread.nowRowNumber=0;/*初始化成功数量百分比*/
-            ESBulkDataThread.nowFailedRowNumber=0;/*初始化失败数量百分比*/
-            logger.info("************************");
-            logger.info("retry the failed table");
-            logger.info("already retry number: "+DatabaseNodeListInfo.retryTimes);
-            logger.info("leaves retry number: "+Mysql2es.retryNumber);
-            /*开始重试*/
-            Mysql2es.reTryInput();
-            logger.info("retry finished");
-            logger.info("************************");
-        }
-
     }
 
-
-    /**
-     * 检查数量
-     */
-    public void checkAllData(){
-        DatabaseNodeListInfo.retryRowNumber=0;/*重置需要本次重试的数据总量*/
-        long esTotalRowNumber = 0;
-        logger.info("check data number ...");
-        /*查询es相关索引的数据量，验证数据量是否一致*/
-        boolean skip = true;
-        Iterator<DatabaseNode> databaseNodeIt = rows.iterator();
-        while (databaseNodeIt.hasNext()) {
-            DatabaseNode databaseNode = databaseNodeIt.next();
-            Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
-
-//            /*判断库的数据量与插入es中对应索引的数据量是否一致,TODO 如果es能直接查询到库的数据量（多个索引，索引通配符），可剪枝。*/
-//            String result = new MyURLConnection().request(ESUrl + Mysql2es.indexName(databaseNode.getDbName(),tableNode.getTableName()) + "/_search", "POST", "");
-//            if(databaseNode.getRowNumber() == )
-
-            while (tableNodeIterator.hasNext()) {
-
-                TableNode tableNode = tableNodeIterator.next();
-
-                String dbName = databaseNode.getDbName();
-                String tbName = tableNode.getTableName();
-
-                /*判断是否是重试*/
-                if(DatabaseNodeListInfo.retryTimes > 0) {
-                    /*判断本次重试，该表是否需要跳过*/
-                    String[] str = retryTable.toString().split(",");
-                    for (int i = 0; i < str.length; ++i) {/*默认跳过，直到找到需要重试的表*/
-                        if (dbName.equals(str[i].split("\\.")[0]) && tbName.equals(str[i].split("\\.")[1])) {
-                            skip = false;
-                            break;
-                        }
-                    }
-                    if (skip) continue;
-                }
-
-                /*计量本次es导入数据量*/
-                esTotalRowNumber += tableNode.getRows().size();
-                /*对比该表数据量与es导入的数据量是否一致*/
-                checkTableDataNumber(dbName,tbName,tableNode.getRows().size());
-
-            }
-        }
-        logger.info("this times es row number: "+esTotalRowNumber);
-        logger.info("check data number finished !");
-    }
-
-    public void checkTableDataNumber(String dbName,String tbName, long tableRowsSize){
-        try {
-            String result = new MyURLConnection().request(ESUrl + Mysql2es.indexName(dbName, tbName) + "/_search", "POST", "");
-            Map map = objectMapper.readValue(result, Map.class);
-            long esNumber = Integer.parseInt(((LinkedHashMap) map.get("hits")).get("total").toString());
-            if (tableRowsSize != esNumber) {
-                logger.error("check number is not consistent! dbName= " + dbName+
-                        ", tbName= " + tbName + ", tbRowNumber= " + tableRowsSize +
-                        ", esRowNumber= " + esNumber);
-                retryTable.append(dbName).append(".").append(tbName).append(",");
-                DatabaseNodeListInfo.retryRowNumber += tableRowsSize;
-            }
-
-        } catch (IOException e) {
-            logger.error("[check number error]", e);
-        }
-    }
-    /*TODO 重试目前有3个BUG：1.进度条[v]、2.重复插入数据而不是更新、3.检查数量时，竟然有非重试表出现[v]、4.总数据相等，但却有3张表数据缺少？*/
-    /*TODO 同上面第四条，es总数据量和各个索引加起来不相等、估计要看es的机制*/
 }
