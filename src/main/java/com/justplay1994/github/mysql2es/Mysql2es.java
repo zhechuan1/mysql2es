@@ -30,6 +30,11 @@ public class Mysql2es {
 
     public static final Logger logger = LoggerFactory.getLogger(Mysql2es.class);
 
+    public static String DBTYPE = "";
+
+    public static final String ORACLE = "ORACLE";
+    public static final String MYSQL = "MYSQL";
+
     public static String ESUrl = "http://192.168.3.250:10000/";
     public static String latStr = "Y";
     public static String lonStr = "X";
@@ -43,6 +48,8 @@ public class Mysql2es {
 	public static String indexType="_doc"; //默认索引的type类型
 
     public static String DateTime="false";/*是否要识别时间字段*/
+
+    public static String indexDB="";/*索引使用的库名*/
 
 //    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
 //    public static int dbNumber=0;/*数据库总数量*/
@@ -69,7 +76,9 @@ public class Mysql2es {
      * @return 索引名称
      */
     public static String indexName(String dbName,String tbName){
-        return tbName+"@"+dbName;
+        if (!indexDB.equals(""))
+            return (tbName+"@"+indexDB).toLowerCase();
+        return (tbName+"@"+dbName).toLowerCase();
     }
 
 
@@ -101,6 +110,7 @@ public class Mysql2es {
         } catch (IOException e) {
             logger.error("读取配置文件失败",e);
         }
+        indexDB=(String)properties.get("indexDB");
         DateTime=(String)properties.get("DateTime");
         justDictionary= (String) properties.get("justDictionary");
         ESUrl = (String)properties.getProperty("ESUrl");
@@ -128,10 +138,22 @@ public class Mysql2es {
         justReadTB = properties.get("justReadTB")!=null ? ((String)properties.get("justReadTB")).replace(" ","").split(","):null;
 		
         /*初始化Mysql属性*/
-        properties.setProperty("user", user);
-        properties.setProperty("password", password);
-        properties.setProperty("useSSL","false");
-        properties.setProperty("verifyServerCertificate","false");
+        if (driver.equalsIgnoreCase("com.mysql.jdbc.Driver")) {
+            DBTYPE = MYSQL;
+            properties.setProperty("user", user);
+            properties.setProperty("password", password);
+            properties.setProperty("useSSL","false");
+            properties.setProperty("verifyServerCertificate","false");
+        }
+
+        /*初始化oracle属性*/
+        if (driver.equalsIgnoreCase("oracle.jdbc.driver.OracleDriver")) {
+            DBTYPE = ORACLE;
+            properties.setProperty("user", user);
+            properties.setProperty("password", password);
+        }
+
+
         /*
         SQL默认date的值为0000-00-00，
         但 java.sql.Date 将其视为 不合法的值 格式不正确，
@@ -165,7 +187,10 @@ public class Mysql2es {
 
             /*获取所有表结构*/
             try {
-                getAllDatabaseStructure();
+                if(DBTYPE.equals(MYSQL))
+                    getMysqlAllDatabaseStructure();
+                if (DBTYPE.equals(ORACLE))
+                    getOracleAllDatabaseStructure();
             } catch (IOException e) {
                 logger.error("get data structure error!\n",e);
             }
@@ -194,16 +219,16 @@ public class Mysql2es {
         }
         catch(SQLException e)
         {
-            logger.error("mysql error",e);
+            logger.error("database error!",e);
         }
     }
 
     /**
-     * 获取所有库表结构，保存至databaseNodeList,并生成数据字典，输出至文件中
+     * 获取mysql所有库表结构，保存至databaseNodeList,并生成数据字典，输出至文件中
      * @return
      * @throws SQLException
      */
-    public static void getAllDatabaseStructure() throws SQLException, IOException {
+    public static void getMysqlAllDatabaseStructure() throws SQLException, IOException {
         File file = new File(dataDictionaryPath);
 
         //2：准备输出流
@@ -217,6 +242,7 @@ public class Mysql2es {
         String sql = "select * from ";
 
         /*查询所有库、表、字段*/
+        /*mysql*/
         con= DriverManager.getConnection(driverUrl + "information_schema", properties);
 
         logger.info("Connect mysql Successfull.");
@@ -225,19 +251,35 @@ public class Mysql2es {
 
 //            st.setString(1,"tb_person_time");
 //            rs  = st.executeQuery();
-        rs = st.executeQuery(sql+"COLUMNS");
+        rs = st.executeQuery(sql+"columns");
 
-            /*获取所有库、表、列名开始*/
+
+        /*获取所有库、表、列名开始*/
         DatabaseNodeListInfo.databaseNodeList = new ArrayList<DatabaseNode>();
 
         DatabaseNode lastDB = null;
         TableNode lastTable = null;
         while(rs.next()){
-            String colStr = rs.getString("COLUMN_NAME");
-            String tbStr = rs.getString("TABLE_NAME");
-            String dbStr = rs.getString("TABLE_SCHEMA");
-            String dataType = rs.getString("DATA_TYPE");
-            String colComment = rs.getString("COLUMN_COMMENT");
+            String colStr =null;
+            String tbStr =null;
+            String dbStr =null;
+            String dataType = null;
+            String colComment = null;
+            if (DBTYPE.equals(MYSQL)) {
+                colStr = rs.getString("COLUMN_NAME");
+                tbStr = rs.getString("TABLE_NAME");
+                dbStr = rs.getString("TABLE_SCHEMA");
+                dataType = rs.getString("DATA_TYPE");
+                colComment = rs.getString("COLUMN_COMMENT");
+            }
+            if (DBTYPE.equals(ORACLE)) {
+                colStr = rs.getString("COLUMN_NAME");
+                tbStr = rs.getString("TABLE_NAME");
+                dbStr = rs.getString("OWNER");
+                dataType = rs.getString("DATA_TYPE");
+                colComment = rs.getString("COMMENTS");
+                colComment = "";
+            }
 
             logger.debug(dbStr+"."+tbStr+"."+colComment);
             boolean skip = false;
@@ -308,6 +350,7 @@ public class Mysql2es {
                 lastTable.getDataType().add(dataType);
             }
         }
+
         /*关闭文件输出流*/
         out.close();
         /*获取所有库、表、列名结束*/
@@ -315,6 +358,152 @@ public class Mysql2es {
         st.close();
         con.close();
     }
+
+    /**
+     * 获取oracle所有库表结构，保存至databaseNodeList,并生成数据字典，输出至文件中
+     * @return
+     * @throws SQLException
+     */
+    public static void getOracleAllDatabaseStructure() throws SQLException, IOException {
+        File file = new File(dataDictionaryPath);
+
+        //2：准备输出流
+        Writer out = new FileWriter(file);
+
+        /*连接Mysql相关变量*/
+        Connection con = null;
+        ResultSet rs = null;
+        Statement st = null;
+
+        String sql = "select * from ";
+
+        /*查询所有库、表、字段*/
+        /*mysql*/
+        con= DriverManager.getConnection(driverUrl, properties);
+        logger.info("Connect oracle Successfull.");
+        st=con.createStatement();
+        /*获取库名、表名*/
+        rs = st.executeQuery("SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'");
+
+        /*获取所有库、表、列名开始*/
+        DatabaseNodeListInfo.databaseNodeList = new ArrayList<DatabaseNode>();
+        List<DatabaseNode> dbList = DatabaseNodeListInfo.databaseNodeList;
+
+        DatabaseNode lastDB = null;
+        TableNode lastTable = null;
+
+        while (rs.next()){
+            String tbStr = rs.getString("TABLE_NAME");
+            String dbStr = rs.getString("TABLESPACE_NAME");
+
+            boolean skip = false;
+            /*判断该库是否是必须读取*/
+            if(justReadDB!=null){
+                skip = true;
+                for(int i = 0; i < justReadDB.length; ++i){
+                    if(dbStr.equals(justReadDB[i])){
+                        skip = false;
+                        break;
+                    }
+                }
+            }
+            /*判断该表是否是必须读取*/
+            if(justReadTB!=null){
+                skip = true;
+                for(int i = 0; i < justReadTB.length; ++i){
+                    /*dbName.tbName*/
+                    if(dbStr.equals(justReadTB[i].split("\\.")[0]) && tbStr.equals(justReadTB[i].split("\\.")[1])){
+                        skip = false;
+                        break;
+                    }
+                }
+            }
+            /*判断该库是否需要跳过*/
+            if(skipDB!=null) {
+                for (int i = 0; i < skipDB.length; ++i) {
+                    if (dbStr.equals(skipDB[i])) {
+                        skip = true;
+                        break;
+                    }
+                }
+            }
+            /*判断该表是否需要跳过*/
+            if(skipTB!=null) {
+                for (int i = 0; i < skipTB.length; ++i) {
+                     /*dbName.tbName*/
+                    if (dbStr.equals(skipTB[i].split("\\.")[0]) && tbStr.equals(skipTB[i].split("\\.")[1])) {
+                        skip = true;
+                        break;
+                    }
+                }
+            }
+
+            if(skip)continue;
+
+            /*判断该库是否存在*/
+            if (dbList.size()!=0 && dbStr.equalsIgnoreCase(dbList.get(dbList.size()-1).getDbName())){
+                List<TableNode> tbList = new ArrayList<TableNode>();
+                TableNode tableNode = new TableNode(tbStr);
+                dbList.get(dbList.size()-1).getTableNodeList().add(tableNode);
+            }else{/*不存在则新建一个库节点，并且新建表节点*/
+                List<TableNode> tbList = new ArrayList<TableNode>();
+                TableNode tableNode = new TableNode(tbStr);
+                tbList.add(tableNode);
+                DatabaseNode dbNode = new DatabaseNode(dbStr,tbList);
+                dbList.add(dbNode);
+            }
+        }
+
+        /*获取表名、字段名*/
+        /*只能假设，同一个owner（用户）下没有重名的表了，这里有风险*/
+        rs = st.executeQuery("SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='"+user.toUpperCase()+"'");
+        while (rs.next()){
+            String colStr = rs.getString("COLUMN_NAME");
+            String tbStr = rs.getString("TABLE_NAME");
+            String dataType = rs.getString("DATA_TYPE");
+            for (int i = 0; i < dbList.size(); ++i){
+                List<TableNode> tbList = dbList.get(i).getTableNodeList();
+                for (int j = 0; j < tbList.size(); ++j){
+                    if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)){
+                        TableNode tb = tbList.get(j);
+                        tb.getColumns().add(colStr);
+                        tb.getDataType().add(dataType);
+                        tb.getCloumnComment().add("");/*预先插入空值*/
+                    }
+                }
+            }
+        }
+
+        /*获取comment备注*/
+        rs = st.executeQuery("SELECT TABLE_NAME,COLUMN_NAME,COMMENTS from all_col_comments WHERE OWNER='YANFAZU'");
+        while (rs.next()){
+            String colStr = rs.getString("COLUMN_NAME");
+            String tbStr = rs.getString("TABLE_NAME");
+            String colComment = rs.getString("COMMENTS");
+            for (int i = 0; i < dbList.size(); ++i){
+                List<TableNode> tbList = dbList.get(i).getTableNodeList();
+                for (int j = 0; j < tbList.size(); ++j){
+                    if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)){
+                        List<String> cList = tbList.get(j).getColumns();
+                        for (int k = 0; k < cList.size(); ++k){
+                            if(cList.get(k).equalsIgnoreCase(colStr)){
+                                tbList.get(j).getCloumnComment().add(k,colComment);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        /*关闭文件输出流*/
+        out.close();
+        /*获取所有库、表、列名结束*/
+        rs.close();
+        st.close();
+        con.close();
+    }
+
 
     /**
      * 遍历表结构，获取所有数据，保存至databaseNodeList
@@ -336,14 +525,20 @@ public class Mysql2es {
             DatabaseNodeListInfo.dbNumber++;
             DatabaseNode databaseNode = databaseNodeIt.next();
                 /*获取数据库连接*/
-            con = DriverManager.getConnection(driverUrl +databaseNode.getDbName(),properties);
+            if(DBTYPE.equalsIgnoreCase(MYSQL))
+                con = DriverManager.getConnection(driverUrl +databaseNode.getDbName(),properties);
+            if (DBTYPE.equalsIgnoreCase(ORACLE))
+                con = DriverManager.getConnection(driverUrl,properties);
             Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
             while(tableNodeIterator.hasNext()){
                 DatabaseNodeListInfo.tbNumber++;
                 TableNode tableNode = tableNodeIterator.next();
                     /*sql查询该表所有数据*/
                 st=con.createStatement();
-                rs = st.executeQuery(sql+tableNode.getTableName());
+                if(DBTYPE.equalsIgnoreCase(MYSQL))
+                    rs = st.executeQuery(sql+tableNode.getTableName());
+                if (DBTYPE.equalsIgnoreCase(ORACLE))
+                    rs = st.executeQuery(sql+"\""+tableNode.getTableName()+"\"");
                 while(rs.next()){
                     /*所有数据+1*/
                     DatabaseNodeListInfo.rowNumber++;

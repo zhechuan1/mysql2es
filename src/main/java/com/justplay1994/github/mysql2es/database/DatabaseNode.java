@@ -1,5 +1,6 @@
 package com.justplay1994.github.mysql2es.database;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -12,7 +13,7 @@ import java.util.List;
  */
 public class DatabaseNode {
     String dbName;      /*数据库名*/
-    List<TableNode> tableNodeList;  /*数据表列表*/
+    List<TableNode> tableNodeList = new ArrayList<TableNode>();  /*数据表列表*/
     long rowNumber;     /*数据总行数*/
 
     public DatabaseNode(){

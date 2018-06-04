@@ -157,11 +157,18 @@ public class ESBulkData{
                     dateTime.put("format","yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis");
 
                     for(int i = 0; i < tableNode.getColumns().size(); ++i){
-                        if(tableNode.getDataType().get(i).equals("varchar")) {
-                            properties.put(tableNode.getColumns().get(i), textAnalyzer);
-                        }else if("true".equalsIgnoreCase(Mysql2es.DateTime)) {
-                            if (tableNode.getDataType().get(i).equals("datetime")){
-                                properties.put(tableNode.getColumns().get(i), dateTime);
+                        if (Mysql2es.DBTYPE.equalsIgnoreCase(Mysql2es.MYSQL)) {
+                            if (tableNode.getDataType().get(i).equalsIgnoreCase("varchar")) {
+                                properties.put(tableNode.getColumns().get(i), textAnalyzer);
+                            } else if ("true".equalsIgnoreCase(Mysql2es.DateTime)) {
+                                if (tableNode.getDataType().get(i).equalsIgnoreCase("datetime")) {
+                                    properties.put(tableNode.getColumns().get(i), dateTime);
+                                }
+                            }
+                        }
+                        if (Mysql2es.DBTYPE.equalsIgnoreCase(Mysql2es.ORACLE)) {
+                            if (tableNode.getDataType().get(i).equalsIgnoreCase("NVARCHAR2")) {
+                                properties.put(tableNode.getColumns().get(i), textAnalyzer);
                             }
                         }
                     }

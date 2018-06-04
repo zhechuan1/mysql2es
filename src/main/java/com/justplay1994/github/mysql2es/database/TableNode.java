@@ -8,10 +8,10 @@ import java.util.ArrayList;
  */
 public class TableNode {
     String tableName;       /*表名*/
-    ArrayList<String> columns;  /*字段名*/
-    ArrayList<ArrayList<String>> rows;  /*数据列表*/
-    private ArrayList<String> dataType;/*字段类型*/
-    ArrayList<String> cloumnComment; /*字段描述*/
+    ArrayList<String> columns = new ArrayList<String>();  /*字段名*/
+    ArrayList<ArrayList<String>> rows = new ArrayList<ArrayList<String>>();  /*数据列表*/
+    private ArrayList<String> dataType = new ArrayList<String>();/*字段类型*/
+    ArrayList<String> cloumnComment = new ArrayList<String>(); /*字段描述*/
 
     public TableNode(){
 
