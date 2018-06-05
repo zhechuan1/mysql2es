@@ -390,15 +390,14 @@ public class Mysql2es {
         ResultSet rs = null;
         Statement st = null;
 
-        String sql = "select * from ";
-
         /*查询所有库、表、字段*/
         /*mysql*/
         con= DriverManager.getConnection(driverUrl, properties);
         logger.info("Connect oracle Successfull.");
         st=con.createStatement();
         /*获取库名、表名*/
-        rs = st.executeQuery("SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'");
+        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'";
+        rs = st.executeQuery(sql);
 
         /*获取所有库、表、列名开始*/
         DatabaseNodeListInfo.databaseNodeList = new ArrayList<DatabaseNode>();
@@ -407,10 +406,13 @@ public class Mysql2es {
         DatabaseNode lastDB = null;
         TableNode lastTable = null;
 
+        logger.debug("[sql: "+sql+" ]");
+
         while (rs.next()){
             String tbStr = rs.getString("TABLE_NAME");
             String dbStr = rs.getString("TABLESPACE_NAME");
 
+            logger.debug("[dbName= "+dbStr+", tbName= "+tbStr);
             boolean skip = false;
             /*判断该库是否是必须读取*/
             if(justReadDB!=null){
@@ -471,11 +473,15 @@ public class Mysql2es {
 
         /*获取表名、字段名*/
         /*只能假设，同一个owner（用户）下没有重名的表了，这里有风险*/
-        rs = st.executeQuery("SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='"+user.toUpperCase()+"'");
+        String sql1 = "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='"+user.toUpperCase()+"'";
+        rs = st.executeQuery(sql1);
+
+        logger.debug("[sql: "+sql1+" ]");
         while (rs.next()){
             String colStr = rs.getString("COLUMN_NAME");
             String tbStr = rs.getString("TABLE_NAME");
             String dataType = rs.getString("DATA_TYPE");
+            logger.debug("[tbName="+tbStr+",colName="+colStr+",dataType="+dataType+"]");
             for (int i = 0; i < dbList.size(); ++i){
                 List<TableNode> tbList = dbList.get(i).getTableNodeList();
                 for (int j = 0; j < tbList.size(); ++j){
@@ -490,11 +496,13 @@ public class Mysql2es {
         }
 
         /*获取comment备注*/
-        rs = st.executeQuery("SELECT TABLE_NAME,COLUMN_NAME,COMMENTS from all_col_comments WHERE OWNER='YANFAZU'");
+        String sql3 = "SELECT TABLE_NAME,COLUMN_NAME,COMMENTS from all_col_comments WHERE OWNER='YANFAZU'";
+        rs = st.executeQuery(sql3);
         while (rs.next()){
             String colStr = rs.getString("COLUMN_NAME");
             String tbStr = rs.getString("TABLE_NAME");
             String colComment = rs.getString("COMMENTS");
+            logger.debug("[tbName="+tbStr+",colStr="+colStr+",colComment="+colComment+"]");
             for (int i = 0; i < dbList.size(); ++i){
                 String dbStr = null;
                 /*数据字典输出的db字符串*/
