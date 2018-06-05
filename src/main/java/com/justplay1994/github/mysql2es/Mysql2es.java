@@ -205,6 +205,7 @@ public class Mysql2es {
                 logger.error("get data structure error!\n",e);
             }
 
+
             /*只生成数据字典，不导入数据*/
             if ("true".equals(justDictionary))
                 return;
@@ -399,8 +400,8 @@ public class Mysql2es {
         logger.info("Connect oracle Successfull.");
         st=con.createStatement();
         /*获取库名、表名*/
-//        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'";
-        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+OWNER.toUpperCase()+"'";
+//        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'";/*在受限的oracle数据库中，all_tables表不能用*/
+        String sql = "SELECT TABLE_NAME, OWNER FROM all_tables WHERE OWNER='"+OWNER.toUpperCase()+"'";
         logger.debug("[sql: "+sql+" ]");
         rs = st.executeQuery(sql);
 
@@ -415,7 +416,7 @@ public class Mysql2es {
 
         while (rs.next()){
             String tbStr = rs.getString("TABLE_NAME");
-            String dbStr = rs.getString("TABLESPACE_NAME");
+            String dbStr = rs.getString("OWNER");
 
             logger.debug("[dbName= "+dbStr+", tbName= "+tbStr);
             boolean skip = false;
@@ -555,6 +556,7 @@ public class Mysql2es {
 
         String sql = "select * from ";
         if(DatabaseNodeListInfo.databaseNodeList==null || DatabaseNodeListInfo.databaseNodeList.size()<=0){
+            logger.error("database structure is null!");
             return;
         }
 
