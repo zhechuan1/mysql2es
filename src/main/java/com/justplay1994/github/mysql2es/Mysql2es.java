@@ -495,7 +495,7 @@ public class Mysql2es {
                         TableNode tb = tbList.get(j);
                         tb.getColumns().add(colStr);
                         tb.getDataType().add(dataType);
-                        tb.getCloumnComment().add("");/*预先插入空值*/
+                        tb.getCloumnComment().add("无");/*预先插入空值*/
                     }
                 }
             }
@@ -519,10 +519,10 @@ public class Mysql2es {
                     dbStr = indexDB;
                 List<TableNode> tbList = dbList.get(i).getTableNodeList();
                 for (int j = 0; j < tbList.size(); ++j){
-                    if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)){
+                    if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)){/*匹配上表名*/
                         List<String> cList = tbList.get(j).getColumns();
                         for (int k = 0; k < cList.size(); ++k){
-                            if(cList.get(k).equalsIgnoreCase(colStr)){/*匹配上字段就行了，TODO 这个逻辑有问题*/
+                            if(cList.get(k).equalsIgnoreCase(colStr)){/*该表中匹配上字段就行了*/
                                 tbList.get(j).getCloumnComment().add(k,colComment);
                                 /*生成数据字典：输出字段-字段comment映射表至文件中*/
                                 out.write(dbStr+"."+tbStr+"."+colStr+"="+colComment+"\n");
@@ -575,8 +575,16 @@ public class Mysql2es {
                 st=con.createStatement();
                 if(DBTYPE.equalsIgnoreCase(MYSQL))
                     rs = st.executeQuery(sql+tableNode.getTableName());
-                if (DBTYPE.equalsIgnoreCase(ORACLE))
-                    rs = st.executeQuery(sql+"\""+tableNode.getTableName()+"\"");
+                if (DBTYPE.equalsIgnoreCase(ORACLE)) {
+//                    rs = st.executeQuery(sql + "\"" + tableNode.getTableName() + "\"");
+                    String sql1 = "select ";
+                    for (int i = 0; i < tableNode.getColumns().size(); ++i){
+                        sql1+= " \""+tableNode.getColumns().get(i)+"\",";
+                    }
+                    sql1 = sql1.substring(0,sql1.length()-1);/*去掉最后一个逗号*/
+                    sql1+=" from \""+tableNode.getTableName()+"\"";
+                    rs = st.executeQuery(sql1);
+                }
                 while(rs.next()){
                     /*所有数据+1*/
                     DatabaseNodeListInfo.rowNumber++;
