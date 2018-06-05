@@ -232,7 +232,11 @@ public class Mysql2es {
         File file = new File(dataDictionaryPath);
 
         //2：准备输出流
-        Writer out = new FileWriter(file);
+        //        Writer out = new FileWriter(file);/*这个是默认字符集，也就是*/
+        Writer out = new BufferedWriter(
+                new OutputStreamWriter(
+                        new FileOutputStream(file), "UTF-8"
+                ));
 
         /*连接Mysql相关变量*/
         Connection con = null;
@@ -368,7 +372,11 @@ public class Mysql2es {
         File file = new File(dataDictionaryPath);
 
         //2：准备输出流
-        Writer out = new FileWriter(file);
+//        Writer out = new FileWriter(file);/*这个是默认字符集，也就是*/
+        Writer out = new BufferedWriter(
+                new OutputStreamWriter(
+                        new FileOutputStream(file), "UTF-8"
+                ));
 
         /*连接Mysql相关变量*/
         Connection con = null;
@@ -481,13 +489,21 @@ public class Mysql2es {
             String tbStr = rs.getString("TABLE_NAME");
             String colComment = rs.getString("COMMENTS");
             for (int i = 0; i < dbList.size(); ++i){
+                String dbStr = null;
+                /*数据字典输出的db字符串*/
+                if (indexDB!="")
+                    dbStr = dbList.get(i).getDbName();
+                else
+                    dbStr = indexDB;
                 List<TableNode> tbList = dbList.get(i).getTableNodeList();
                 for (int j = 0; j < tbList.size(); ++j){
                     if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)){
                         List<String> cList = tbList.get(j).getColumns();
                         for (int k = 0; k < cList.size(); ++k){
-                            if(cList.get(k).equalsIgnoreCase(colStr)){
+                            if(cList.get(k).equalsIgnoreCase(colStr)){/*匹配上字段就行了，TODO 这个逻辑有问题*/
                                 tbList.get(j).getCloumnComment().add(k,colComment);
+                                /*生成数据字典：输出字段-字段comment映射表至文件中*/
+                                out.write(dbStr+"."+tbStr+"."+colStr+"="+colComment+"\n");
                             }
                         }
                     }
