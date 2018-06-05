@@ -401,7 +401,7 @@ public class Mysql2es {
         st=con.createStatement();
         /*获取库名、表名*/
 //        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'";/*在受限的oracle数据库中，all_tables表不能用*/
-        String sql = "SELECT TABLE_NAME, OWNER FROM all_tab_columns WHERE OWNER='"+OWNER.toUpperCase()+"' GROUP BY TABLE_NAME ";
+        String sql = "SELECT DISTINCT TABLE_NAME, OWNER FROM all_tab_columns WHERE OWNER='"+OWNER.toUpperCase()+"'";
         logger.debug("[sql: "+sql+" ]");
         rs = st.executeQuery(sql);
 
