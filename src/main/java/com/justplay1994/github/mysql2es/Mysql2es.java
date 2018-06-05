@@ -1,7 +1,9 @@
 package com.justplay1994.github.mysql2es;
 
 
+import ch.qos.logback.core.joran.spi.JoranException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.justplay1994.github.mysql2es.config.LogBackConfigLoader;
 import com.justplay1994.github.mysql2es.database.DatabaseNode;
 import com.justplay1994.github.mysql2es.database.DatabaseNodeListInfo;
 import com.justplay1994.github.mysql2es.database.TableNode;
@@ -103,12 +105,17 @@ public class Mysql2es {
                 System.out.println(path);
                 f = new File(path);
                 inputStream = new FileInputStream(f);
+
+                if (args.length>1)
+                    LogBackConfigLoader.load(args[1]);
             }else{
                 inputStream =this.getClass().getResourceAsStream("/mysql2es.properties");
             }
             properties.load(new InputStreamReader(inputStream,"UTF-8"));
         } catch (IOException e) {
             logger.error("读取配置文件失败",e);
+        } catch (JoranException e) {
+            logger.error("logback read xml error! path: "+args[1],e);
         }
         indexDB=(String)properties.get("indexDB");
         DateTime=(String)properties.get("DateTime");
