@@ -49,6 +49,8 @@ public class Mysql2es {
     static String justDictionary="false";/*仅仅执行数据字段生成操作，不导入数据*/
 	public static String indexType="_doc"; //默认索引的type类型
 
+    public static String OWNER="";/*ORACLE 的owner值*/
+
     public static String DateTime="false";/*是否要识别时间字段*/
 
     public static String indexDB="";/*索引使用的库名*/
@@ -158,6 +160,7 @@ public class Mysql2es {
             DBTYPE = ORACLE;
             properties.setProperty("user", user);
             properties.setProperty("password", password);
+            OWNER=properties.get("OWNER").toString();
         }
 
 
@@ -396,7 +399,9 @@ public class Mysql2es {
         logger.info("Connect oracle Successfull.");
         st=con.createStatement();
         /*获取库名、表名*/
-        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'";
+//        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'";
+        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+OWNER.toUpperCase()+"'";
+        logger.debug("[sql: "+sql+" ]");
         rs = st.executeQuery(sql);
 
         /*获取所有库、表、列名开始*/
@@ -406,7 +411,7 @@ public class Mysql2es {
         DatabaseNode lastDB = null;
         TableNode lastTable = null;
 
-        logger.debug("[sql: "+sql+" ]");
+
 
         while (rs.next()){
             String tbStr = rs.getString("TABLE_NAME");
@@ -473,10 +478,11 @@ public class Mysql2es {
 
         /*获取表名、字段名*/
         /*只能假设，同一个owner（用户）下没有重名的表了，这里有风险*/
-        String sql1 = "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='"+user.toUpperCase()+"'";
+        String sql1 = "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='"+OWNER.toUpperCase()+"'";
+        logger.debug("[sql: "+sql1+" ]");
         rs = st.executeQuery(sql1);
 
-        logger.debug("[sql: "+sql1+" ]");
+
         while (rs.next()){
             String colStr = rs.getString("COLUMN_NAME");
             String tbStr = rs.getString("TABLE_NAME");
@@ -496,7 +502,8 @@ public class Mysql2es {
         }
 
         /*获取comment备注*/
-        String sql3 = "SELECT TABLE_NAME,COLUMN_NAME,COMMENTS from all_col_comments WHERE OWNER='YANFAZU'";
+        String sql3 = "SELECT TABLE_NAME,COLUMN_NAME,COMMENTS from all_col_comments WHERE OWNER='"+OWNER.toUpperCase()+"'";
+        logger.debug("[sql: "+sql3+"]");
         rs = st.executeQuery(sql3);
         while (rs.next()){
             String colStr = rs.getString("COLUMN_NAME");
