@@ -545,12 +545,19 @@ public class Mysql2es {
                     /*该库数据+1*/
                     databaseNode.setRowNumber(databaseNode.getRowNumber()+1);
 
-                    ResultSetMetaData md = rs.getMetaData();
-                    int columnCount = md.getColumnCount();
+//                    ResultSetMetaData md = rs.getMetaData();
+//                    int columnCount = md.getColumnCount();
+//                    ArrayList<String> row = new ArrayList<String>();
+//                    for(int i = 1; i <= columnCount; ++i) {
+//                        row.add(rs.getString(i));
+//                    }
                     ArrayList<String> row = new ArrayList<String>();
-                    for(int i = 1; i <= columnCount; ++i) {
-                        row.add(rs.getString(i));
+                    List cols = tableNode.getColumns();
+                    for (int i = 0; i < cols.size(); ++i){
+                        row.add(rs.getString(cols.get(i).toString()));
                     }
+
+
                     tableNode.getRows().add(row);
                 }
             }
