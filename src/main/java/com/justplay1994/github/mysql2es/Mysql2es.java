@@ -583,6 +583,7 @@ public class Mysql2es {
                     }
                     sql1 = sql1.substring(0,sql1.length()-1);/*去掉最后一个逗号*/
                     sql1+=" from \""+tableNode.getTableName()+"\"";
+                    logger.debug("[sql: "+sql1+"]");
                     rs = st.executeQuery(sql1);
                 }
                 while(rs.next()){
