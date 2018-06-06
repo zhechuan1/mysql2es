@@ -224,6 +224,9 @@ public class Mysql2es {
             logger.info("rowNumber: "+ DatabaseNodeListInfo.rowNumber);
             logger.info("========================");
 
+
+            if(justCountDataNumber!=null && justCountDataNumber.equalsIgnoreCase("true"))
+                return;
             /*删除与导入数据索引名相同的索引*/
             esDeleteAll();
 
@@ -581,7 +584,9 @@ public class Mysql2es {
                     st=con.createStatement();
                     rs = st.executeQuery("select count(*) "+" from \""+OWNER+"\".\""+tableNode.getTableName()+"\"");
                     rs.next();
-                    DatabaseNodeListInfo.rowNumber+=Integer.parseInt(rs.getString("COUNT(*)"));
+                    int number = Integer.parseInt(rs.getString("COUNT(*)"));
+                    DatabaseNodeListInfo.rowNumber+=number;
+                    logger.info("[ dbName= "+databaseNode.getDbName()+", tbName= "+tableNode.getTableName()+",rowNumber= "+number+" ]");
                     continue;
                 }
 
