@@ -55,6 +55,7 @@ public class Mysql2es {
 
     public static String indexDB="";/*索引使用的库名*/
 
+    public static String justCountDataNumber="";
 //    public  static List<DatabaseNode> databaseNodeList;/*所有数据*/
 //    public static int dbNumber=0;/*数据库总数量*/
 //    public static int tbNumber = 0;/*表总数量*/
@@ -145,7 +146,9 @@ public class Mysql2es {
         skipTB = properties.get("skipTB")!=null ? ((String)properties.get("skipTB")).replace(" ","").split(","):null;
         justReadDB = properties.get("justReadDB")!=null ? ((String)properties.get("justReadDB")).replace(" ","").split(","):null;
         justReadTB = properties.get("justReadTB")!=null ? ((String)properties.get("justReadTB")).replace(" ","").split(","):null;
-		
+
+        justCountDataNumber=properties.getProperty("justCountDataNumber");
+
         /*初始化Mysql属性*/
         if (driver.equalsIgnoreCase("com.mysql.jdbc.Driver")) {
             DBTYPE = MYSQL;
@@ -573,6 +576,15 @@ public class Mysql2es {
             while(tableNodeIterator.hasNext()){
                 DatabaseNodeListInfo.tbNumber++;
                 TableNode tableNode = tableNodeIterator.next();
+                /*只统计数据*/
+                if(justCountDataNumber!=null && justCountDataNumber.equalsIgnoreCase("true")){
+                    st=con.createStatement();
+                    rs = st.executeQuery("select count(*) "+" from \""+OWNER+"\".\""+tableNode.getTableName()+"\"");
+                    rs.next();
+                    DatabaseNodeListInfo.rowNumber+=Integer.parseInt(rs.getString("COUNT(*)"));
+                    continue;
+                }
+
                     /*sql查询该表所有数据*/
                 st=con.createStatement();
                 if(DBTYPE.equalsIgnoreCase(MYSQL))
