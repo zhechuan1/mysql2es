@@ -159,16 +159,16 @@ public class ESBulkData{
                     for(int i = 0; i < tableNode.getColumns().size(); ++i){
                         if (Mysql2es.DBTYPE.equalsIgnoreCase(Mysql2es.MYSQL)) {
                             if (tableNode.getDataType().get(i).equalsIgnoreCase("varchar")) {
-                                properties.put(tableNode.getColumns().get(i), textAnalyzer);
+                                properties.put(tableNode.getColumns().get(i).toLowerCase(), textAnalyzer);
                             } else if ("true".equalsIgnoreCase(Mysql2es.DateTime)) {
                                 if (tableNode.getDataType().get(i).equalsIgnoreCase("datetime")) {
-                                    properties.put(tableNode.getColumns().get(i), dateTime);
+                                    properties.put(tableNode.getColumns().get(i).toLowerCase(), dateTime);
                                 }
                             }
                         }
                         if (Mysql2es.DBTYPE.equalsIgnoreCase(Mysql2es.ORACLE)) {
                             if (tableNode.getDataType().get(i).equalsIgnoreCase("NVARCHAR2")) {
-                                properties.put(tableNode.getColumns().get(i), textAnalyzer);
+                                properties.put(tableNode.getColumns().get(i).toLowerCase(), textAnalyzer);
                             }
                         }
                     }
@@ -291,7 +291,7 @@ public class ESBulkData{
                     for(int i = 0; i < row.size(); ++i){
                         /*去除空数据*/
                         if(row.get(i)!=null && !row.get(i).equals(""))
-                            map.put(tableNode.getColumns().get(i),row.get(i));
+                            map.put(tableNode.getColumns().get(i).toLowerCase(),row.get(i));
                     }
                     if("true".equalsIgnoreCase(Mysql2es.DateTime)) {
                     /*处理时间字段，截取2018-05-02 16:13:00.0 的最后两位 .0*/
