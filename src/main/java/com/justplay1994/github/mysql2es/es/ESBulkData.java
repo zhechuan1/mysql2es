@@ -155,6 +155,9 @@ public class ESBulkData{
                     HashMap dateTime = new HashMap();
                     dateTime.put("type","date");
                     dateTime.put("format","yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis");
+                    /*普通字符串字段，避免被自动识别为其他类型*/
+                    HashMap textType = new HashMap();
+                    textType.put("type","text");
 
                     for(int i = 0; i < tableNode.getColumns().size(); ++i){
                         if (Mysql2es.DBTYPE.equalsIgnoreCase(Mysql2es.MYSQL)) {
@@ -164,11 +167,15 @@ public class ESBulkData{
                                 if (tableNode.getDataType().get(i).equalsIgnoreCase("datetime")) {
                                     properties.put(tableNode.getColumns().get(i).toLowerCase(), dateTime);
                                 }
+                            }else {
+                                properties.put(tableNode.getColumns().get(i).toLowerCase(), textType);
                             }
                         }
                         if (Mysql2es.DBTYPE.equalsIgnoreCase(Mysql2es.ORACLE)) {
                             if (tableNode.getDataType().get(i).equalsIgnoreCase("NVARCHAR2")) {
                                 properties.put(tableNode.getColumns().get(i).toLowerCase(), textAnalyzer);
+                            }else {
+                                properties.put(tableNode.getColumns().get(i).toLowerCase(), textType);
                             }
                         }
                     }
@@ -312,9 +319,9 @@ public class ESBulkData{
                         }
                     }
                     /*请求head*/
-                    if(id!=-1) {/*没有id字段，es自动生成uuid*/
+                    if(id!=-1) {
                         json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \""+Mysql2es.indexType+"\", \"_id\": \""+row.get(id)+"\"}}\n");
-                    }else{
+                    }else{/*没有id字段，es自动生成uuid*/
                         json.append("{ \"index\":{ \"_index\": \"" + Mysql2es.indexName(databaseNode.getDbName(), tableNode.getTableName()) + "\", \"_type\": \""+Mysql2es.indexType+"\"}}\n");
                     }
 
